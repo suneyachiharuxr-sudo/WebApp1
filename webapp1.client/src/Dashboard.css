@@ -1,0 +1,363 @@
+﻿/* 画面全体の土台 */
+/*:root {
+    --sidebar-w: 280px;
+    --bg: #f5f7f9;
+    --sidebar: #c5c5c5;
+    --panel: #e9e9e9;
+}
+
+html, body, #root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
+}
+
+.layout {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: var(--sidebar-w) 1fr;*/ /* ← 左がサイドバー、右がメイン */
+/*}*/
+
+/* サイドバー */
+/*.sidebar {
+    background: var(--sidebar);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    border-right: 1px solid #d9d9d9;
+}
+
+.hello {
+    font-size: 22px;
+    color: #f3f3f3;
+    letter-spacing: .5px;
+    margin-top: 4px;
+}
+
+.username {
+    margin-top: 6px;
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+}*/
+
+/* メニュー群（白い角丸のボタン） */
+/*.menu {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;*/ /* ボタン間の余白を広めに */
+/*}
+
+.menu-btn {
+    width: 185px;
+    padding: 16px 14px;
+    background: #fff;
+    color: #222;
+    border: 1px solid #bdbdbd;
+    border-radius: 10px;
+    font-size: 18px;
+    cursor: pointer;
+    align-self: flex-start;
+    box-shadow: 0 1px 0 rgba(0,0,0,.06);
+}
+
+    .menu-btn:hover {
+        background: #fafafa;
+    }*/
+
+/* 一番下に固定される LOGOUT */
+/*.logout {
+    margin-top: auto;*/ /* ← これで最下部へ */
+    /*width: 185px;
+    padding: 12px 14px;
+    background: #ff6347;
+    color: #111;
+    border: 1px solid #bdbdbd;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+    .logout:hover {
+        background: #ff7f50;
+    }*/
+
+/* 右側の大きい角丸パネル */
+/*.panel {
+    padding: 64px 72px;
+    margin: 60px 64px;
+    background: var(--panel);
+    border-radius: 40px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.03);
+}*/
+
+/* 見出し（社員氏名）を大きく */
+/*.emp-name {
+    margin: 0 0 28px;
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: .5px;
+}*/
+
+/* 「貸出状態： なし」 行とバッジ */
+/*.status-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-top: 24px;
+    color: #333;
+    font-size: 22px;
+}
+
+.label {
+    color: #444;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 180px;
+    height: 64px;
+    padding: 0 24px;
+    border-radius: 14px;
+    font-size: 34px;
+    font-weight: 800;
+    color: #fff;
+}
+
+    .badge.good {
+        background: #6cab4d;
+    }*/
+    /* なし → 緑 */
+    /*.badge.bad {
+        background: #d2842d;
+    }*/
+/* 貸出中 → 橙 */
+
+/* 幅が狭いときの縮小 */
+/*@media (max-width: 960px) {
+    :root {
+        --sidebar-w: 220px;
+    }
+
+    .panel {
+        margin: 32px;
+        padding: 40px;
+        border-radius: 28px;
+    }
+
+    .emp-name {
+        font-size: 40px;
+    }
+
+    .badge {
+        min-width: 140px;
+        height: 52px;
+        font-size: 26px;
+    }
+}*/
+
+/* 共通 */
+:root {
+    --sidebar-w: 280px;
+    --bg: #f5f7f9;
+    --sidebar: #c5c5c5;
+    --panel: #e9e9e9;
+}
+
+html, body, #root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    font-family: "Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,system-ui,sans-serif;
+}
+
+/* 左端固定のサイドバー */
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0; /* ＝ height:100vh */
+    width: var(--sidebar-w);
+    background: var(--sidebar);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    border-right: 1px solid #d9d9d9;
+}
+
+.hello {
+    font-size: 22px;
+    color: #f3f3f3;
+    letter-spacing: .5px;
+    margin-top: 4px;
+}
+
+.username {
+    margin-top: 6px;
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+}
+
+.menu {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+}
+
+.menu-btn {
+    width: 185px;
+    padding: 16px 14px;
+    background: #fff;
+    color: #222;
+    border: 1px solid #bdbdbd;
+    border-radius: 10px;
+    font-size: 18px;
+    cursor: pointer;
+    align-self: flex-start;
+    box-shadow: 0 1px 0 rgba(0,0,0,.06);
+}
+
+    .menu-btn:hover {
+        background: #f6f6f6;
+    }
+
+/* 一番下のLOGOUT */
+.logout {
+    margin-top: auto;
+    width: 185px;
+    padding: 12px 14px;
+    background: #ff6347;
+    color: #111;
+    border: 1px solid #bdbdbd;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+    .logout:hover {
+        background: #ff7f50;
+    }
+
+/* 右側領域はサイドバー幅ぶんだけずらす */
+.layout {
+    min-height: 100vh;
+    margin-left: var(--sidebar-w);
+}
+
+/* 右の大きいカード */
+.panel {
+    padding: 64px 72px;
+    margin: 60px 64px;
+    background: var(--panel);
+    border-radius: 40px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.03);
+}
+
+/* 見出し（社員氏名） */
+.emp-name {
+    margin: 0 0 28px;
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: .5px;
+}
+
+/* ステータス行とバッジ */
+.status-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-top: 24px;
+    color: #333;
+    font-size: 22px;
+}
+
+.label {
+    color: #444;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 180px;
+    height: 64px;
+    padding: 0 24px;
+    border-radius: 14px;
+    font-size: 34px;
+    font-weight: 800;
+    color: #fff;
+}
+
+    .badge.good {
+        background: #6cab4d;
+    }
+    /* なし=緑 */
+    .badge.bad {
+        background: #d2842d;
+    }
+/* 貸出中=橙 */
+
+/* 詳細行 */
+.detail-row {
+    margin: 18px 0;
+    font-size: 20px;
+    color: #222;
+}
+
+/* 返却ボタン（右寄せ・丸み） */
+.return-btn {
+    margin-left: auto;
+    display: inline-block;
+    margin-top: 24px;
+    padding: 18px 36px;
+    border: none;
+    border-radius: 18px;
+    background: #9ed082;
+    color: #fff;
+    font-weight: 800;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 2px 0 rgba(0,0,0,.08);
+}
+
+    .return-btn:hover {
+        filter: brightness(0.98);
+    }
+
+/* レスポンシブ縮小 */
+@media (max-width: 960px) {
+    :root {
+        --sidebar-w: 220px;
+    }
+
+    .panel {
+        margin: 32px;
+        padding: 40px;
+        border-radius: 28px;
+    }
+
+    .emp-name {
+        font-size: 40px;
+    }
+
+    .badge {
+        min-width: 140px;
+        height: 52px;
+        font-size: 26px;
+    }
+}
+

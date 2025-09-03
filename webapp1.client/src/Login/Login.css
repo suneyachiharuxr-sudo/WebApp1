@@ -1,0 +1,60 @@
+﻿/* ログインページのスタイル */
+.login-box {
+    background-color: #a9a9a9; /* グレー背景 */
+    padding: 30px;
+    border-radius: 25px;
+    width: 350px;
+    margin: 100px auto;
+    text-align: left;
+}
+
+    .login-box h1 {
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+    }
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+}
+
+input {
+    width: 100%;
+    padding: 8px;
+    font-size: 1rem;
+    border: 1px solid #000;
+    border-radius: 2px;
+    box-sizing: border-box;
+}
+
+button {
+    display: block;
+    margin: 10px auto 0;
+    padding: 8px 20px;
+    font-size: 1rem;
+    border: 1px solid #555;
+    border-radius: 6px;
+    background-color: #eee;
+    cursor: pointer;
+}
+
+    button:hover {
+        background-color: #ddd;
+    }
+
+.error {
+    color: darkred;
+    font-size: 0.9rem;
+    margin-left: 8px;
+}
+
+    .error.general {
+        margin: 10px 0;
+        text-align: center;
+    }
+

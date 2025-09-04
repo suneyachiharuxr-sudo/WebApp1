@@ -1,0 +1,6 @@
+:root {
+    /* サイドバーの実寸。あなたのUIなら 288px 前後 */
+    --sidebar-w: 288px;
+    /* カード内の左右パディング */
+    --panel-pad: clamp(20px, 2.6vw, 40px);
+}

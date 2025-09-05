@@ -1,7 +1,7 @@
 ﻿:root {
     --sidebar-w: 280px; /* サイドバー幅 */
     --gap-x: 32px; /* サイドバーと本体の隙間 */
-    --panel-max: 1200px; /* 右の丸カードの最大幅（最初に好評だった幅） */
+    --panel-max: 1100px; /* 右の丸カードの最大幅（最初に好評だった幅） */
     --radius-xl: 36px; /* 大きめの角丸 */
 }
 
@@ -100,7 +100,7 @@ body {
 .panel {
     /* サイドバーの右側に配置 */
     margin-left: calc(var(--sidebar-w) + var(--gap-x));
-    padding: 36px 28px;
+    padding: 50px 38px;
     /* カード風の見た目（最初に好評だったトーン） */
     max-width: var(--panel-max);
     background: #e9e8e8;
@@ -140,13 +140,13 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 96px;
-    height: 44px;
+    min-width: 120px;
+    height: 80px;
     padding: 0 18px;
     color: #fff;
     border-radius: 12px;
     font-weight: 700;
-    font-size: 22px;
+    font-size: 40px;
 }
 
     .badge.good {
@@ -189,3 +189,5 @@ body {
     padding: 10px 12px;
     border-radius: 8px;
 }
+
+

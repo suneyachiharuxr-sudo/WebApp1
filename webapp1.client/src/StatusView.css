@@ -1,12 +1,13 @@
 /* このビュー専用の“丸背景”カード。1366x768 でも必ず収まる幅 */
 .status-card {
-    width: min(1100px, calc(100vw - var(--sidebar-w) - 40px));
+    width: min(900px, calc(100vw - var(--sidebar-w) - 40px));
     margin: 20px auto;
     padding: var(--panel-pad);
     background: #ececec;
     background: linear-gradient(180deg,#f6f6f6 0%,#e9e9e9 100%);
     border-radius: 32px;
     box-shadow: 0 12px 30px rgba(0,0,0,.06) inset, 0 8px 24px rgba(0,0,0,.06);
+    min-height: calc(100vh - 130px); /* 余白分だけ引いて全高に近づける。数値は好みで */
 }
 
 .status-title {
@@ -24,17 +25,17 @@
 }
 
 .status-label {
-    font-size: 22px;
+    font-size: 40px;
     color: #333;
 }
 
 .status-badge {
     display: inline-block;
-    padding: 8px 16px;
+    padding: 10px 16px;
     border-radius: 12px;
     font-weight: 800;
     color: #fff;
-    font-size: 20px;
+    font-size: 40px;
 }
 
     .status-badge.good {
@@ -65,3 +66,5 @@
 .status-error {
     color: #c33;
 }
+
+

@@ -1,4 +1,4 @@
-﻿import { useEffect,useState } from "react";
+﻿import { useEffect, useState, useRef, useLayoutEffect } from "react";
 import "./DeviceList.css";
 
 export default function DeviceList() {
@@ -6,12 +6,49 @@ export default function DeviceList() {
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
     const [deleteMode, setDeleteMode] = useState(false);
-    const [showDetails, setShowDetails] = useState(false); // ← 追加列の表示/非表示
+    const [showDetails, setShowDetails] = useState(false); // 追加列の表示/非表示
 
     // モーダル制御
     const [showCreate, setShowCreate] = useState(false);
     const [editing, setEditing] = useState(null);        // { ...row }
     const [confirmDel, setConfirmDel] = useState(null);  // assetNo
+
+    // ===== 上部横スクロールバー用 =====
+    const tableWrapRef = useRef(null);   // 下の本体（.table-wrapper）
+    const topScrollRef = useRef(null);   // 上の薄いバー
+    const [hWidth, setHWidth] = useState(0);
+    const [needX, setNeedX] = useState(false);
+
+    useLayoutEffect(() => {
+        const el = tableWrapRef.current;
+        if (!el) return;
+
+        const update = () => {
+            setHWidth(el.scrollWidth);
+            setNeedX(el.scrollWidth > el.clientWidth); // はみ出す時だけ上バーを表示
+        };
+
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        window.addEventListener("resize", update);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener("resize", update);
+        };
+    }, [rows, showDetails]);
+
+    const onTopScroll = (e) => {
+        const body = tableWrapRef.current;
+        if (!body) return;
+        body.scrollLeft = e.currentTarget.scrollLeft;
+    };
+    const onBodyScroll = (e) => {
+        const top = topScrollRef.current;
+        if (!top) return;
+        top.scrollLeft = e.currentTarget.scrollLeft;
+    };
+    // ================================
 
     const fetchAll = async () => {
         setLoading(true);
@@ -38,7 +75,6 @@ export default function DeviceList() {
     };
 
     // --- CRUD ---
-
     const createDevice = async (payload) => {
         const res = await fetch("/device/create", {
             method: "POST",
@@ -75,20 +111,35 @@ export default function DeviceList() {
             <div className="device-page">
                 <div className="page-title">機器一覧</div>
 
-                <div className="toolbar">
-                    <button className="btn" title="新規" onClick={() => setShowCreate(true)}>＋</button>
-                    <button
-                        className={`btn ${deleteMode ? "active" : ""}`}
-                        title="削除モード"
-                        onClick={() => setDeleteMode(v => !v)}
-                    >－</button>
-                    <button className="btn" title="再読込" onClick={fetchAll}>⟳</button>
-                    <button
-                        className={`btn ${showDetails ? "active" : ""}`}
-                        title="詳細列の表示/非表示"
-                        onClick={() => setShowDetails(s => !s)}
-                    >…</button>
+                <div className="toolbar two-sides">
+                    {/* 左：＋／－ */}
+                    <div className="left-group">
+                        <button className="btn" title="新規" onClick={() => setShowCreate(true)}>＋</button>
+                        <button
+                            className={`btn ${deleteMode ? "active" : ""}`}
+                            title="削除モード"
+                            onClick={() => setDeleteMode(v => !v)}
+                        >－</button>
+                    </div>
+
+                    {/* 右：⟳／… */}
+                    <div className="right-group">
+                        <button className="btn" title="再読込" onClick={fetchAll}>⟳</button>
+                        <button
+                            className={`btn ${showDetails ? "active" : ""}`}
+                            title="詳細列の表示/非表示"
+                            onClick={() => setShowDetails(s => !s)}
+                        >…</button>
+                    </div>
                 </div>
+
+
+                {/* ★ 追加：途中に出す横スクロールバー（必要な時だけ表示） */}
+                {needX && (
+                    <div className="hscroll-top" ref={topScrollRef} onScroll={onTopScroll}>
+                        <div style={{ width: hWidth, height: 1 }} />
+                    </div>
+                )}
 
                 {loading && <div className="msg">読み込み中…</div>}
                 {err && <div className="error">{err}</div>}
@@ -96,7 +147,11 @@ export default function DeviceList() {
                 {!loading && !err && (
                     <div className="table-viewport">
                         {/* 詳細ONのときだけ横スクロール許可 */}
-                        <div className={`table-wrapper ${showDetails ? "with-x-scroll" : ""}`}>
+                        <div
+                            className={`table-wrapper ${showDetails ? "with-x-scroll" : ""}`}
+                            ref={tableWrapRef}
+                            onScroll={onBodyScroll}
+                        >
                             <table className="device-table">
                                 <thead>
                                     <tr>
@@ -161,9 +216,9 @@ export default function DeviceList() {
                         </div>
                     </div>
                 )}
-            </div>{/* /.device-page */}
+            </div>
 
-            {/* ── モーダルは <section> の内側に置く ── */}
+            {/* ── モーダル ── */}
             {showCreate && (
                 <DeviceModal
                     title="新規機器登録"
@@ -204,8 +259,6 @@ export default function DeviceList() {
             )}
         </section>
     );
-
-    
 }
 
 /* ---------- モーダル（新規/編集 共通） ---------- */
@@ -308,5 +361,3 @@ function ConfirmDialog({ title, okText = "OK", cancelText = "Cancel", onOk, onCa
         </div>
     );
 }
-
-

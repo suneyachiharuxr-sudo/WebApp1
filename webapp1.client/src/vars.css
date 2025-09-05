@@ -3,4 +3,9 @@
     --sidebar-w: 288px;
     /* カード内の左右パディング */
     --panel-pad: clamp(20px, 2.6vw, 40px);
+    --primary: #2563eb; /* 青 */
+    --ok: #22c55e; /* 緑（決定ボタン）*/
+    --danger: #ef4444; /* 赤（削除など）*/
+    --gray-100: #f3f4f6;
+    --gray-300: #d1d5db;
 }

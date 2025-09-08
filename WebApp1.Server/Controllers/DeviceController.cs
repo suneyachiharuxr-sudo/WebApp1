@@ -11,24 +11,28 @@ namespace WebApp1.Server.Controllers
         private readonly NpgsqlConnection _conn;
         public DeviceController(NpgsqlConnection conn) => _conn = conn;
 
-        // DTO
+        // ---------- DTO ----------
         public class DeviceDto
         {
-            public string AssetNo { get; set; } = string.Empty;   // 資産番号（PK）
+            public string AssetNo { get; set; } = string.Empty; // 資産番号（PK）
             public string Maker { get; set; } = string.Empty;
             public string? Os { get; set; }
             public int? MemoryGb { get; set; }
             public int? StorageGb { get; set; }
             public string? Gpu { get; set; }
             public string? Location { get; set; }
-            public bool BrokenFlag { get; set; } = false;         // 故障フラグ
+            public bool BrokenFlag { get; set; } = false;       // 故障フラグ
             public DateTime? LeaseStart { get; set; }
             public DateTime? LeaseEnd { get; set; }
             public string? Remarks { get; set; }
         }
-        public class DeleteDto { public string AssetNo { get; set; } = string.Empty; }
+        public class DeleteDto
+        {
+            public string AssetNo { get; set; } = string.Empty;
+        }
 
-        // 一覧取得（デフォルトは未削除のみ。?includeDeleted=true で全部）
+        // ---------- 一覧取得 ----------
+        // デフォルト：未削除のみ。?includeDeleted=true で全件
         [HttpGet("list")]
         public async Task<IActionResult> List([FromQuery] bool includeDeleted = false)
         {
@@ -67,17 +71,18 @@ SELECT asset_no, maker, os, memory_gb, storage_gb, gpu, location, broken_flag,
             return Ok(list);
         }
 
-        // 新規作成
+        // ---------- 新規作成 ----------
         [HttpPost("create")]
         public async Task<IActionResult> Create([FromBody] DeviceDto d)
         {
             var asset = (d.AssetNo ?? "").Trim();
-            if (string.IsNullOrEmpty(asset)) return BadRequest(new { message = "資産番号は必須です" });
+            if (string.IsNullOrEmpty(asset))
+                return BadRequest(new { message = "資産番号は必須です" });
 
             if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
             using var tx = await _conn.BeginTransactionAsync();
 
-            // 存在チェック
+            // 重複チェック
             using (var chk = new NpgsqlCommand("SELECT 1 FROM mst_device WHERE asset_no=@a", _conn, (NpgsqlTransaction)tx))
             {
                 chk.Parameters.AddWithValue("a", asset);
@@ -112,12 +117,13 @@ VALUES
             return Ok(new { message = "登録しました" });
         }
 
-        // 更新（資産番号で上書き）
+        // ---------- 更新（資産番号で上書き） ----------
         [HttpPut("update")]
         public async Task<IActionResult> Update([FromBody] DeviceDto d)
         {
             var asset = (d.AssetNo ?? "").Trim();
-            if (string.IsNullOrEmpty(asset)) return BadRequest(new { message = "資産番号は必須です" });
+            if (string.IsNullOrEmpty(asset))
+                return BadRequest(new { message = "資産番号は必須です" });
 
             if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
 
@@ -146,12 +152,13 @@ WHERE asset_no=@asset_no AND delete_flag=FALSE";
             return Ok(new { message = "更新しました" });
         }
 
-        // 論理削除
+        // ---------- 論理削除 ----------
         [HttpPost("delete")]
         public async Task<IActionResult> Delete([FromBody] DeleteDto req)
         {
             var asset = (req.AssetNo ?? "").Trim();
-            if (string.IsNullOrEmpty(asset)) return BadRequest(new { message = "assetNo is required" });
+            if (string.IsNullOrEmpty(asset))
+                return BadRequest(new { message = "assetNo is required" });
 
             if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
 
@@ -163,6 +170,7 @@ WHERE asset_no=@asset_no AND delete_flag=FALSE";
             return Ok(new { message = "削除しました" });
         }
 
+        // ---------- Helper ----------
         private static void Add(NpgsqlCommand cmd, string name, object? value)
             => cmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
     }

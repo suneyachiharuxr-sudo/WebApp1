@@ -4,7 +4,9 @@ import "./StatusView.css";
 
 // 機器一覧を使う場合は path をあなたの構成に合わせてください
 // 例: src/views/Devices/DeviceList.jsx
+import RentalsList from "./RentalsList.jsx";
 import DeviceList from "./DeviceList.jsx";
+
 
 export default function Dashboard({ onLogout }) {
     //ログイン情報
@@ -65,7 +67,12 @@ export default function Dashboard({ onLogout }) {
                 <div className="username">{me?.name || "USER名"}</div>
 
                 <nav className="menu">
-                    <button className="menu=btn" disabled>貸出状況</button>
+                    <button
+                        className={`menu-btn ${view === "Rentals" ? "active" : ""}`}
+                        onClick={() => setView("Rentals")}
+                    >
+                        貸出状況
+                    </button>
                     <button
                         className={`menu-btn ${view === "devices" ? "active" : ""}`}
                         onClick={() => setView("devices")}
@@ -116,6 +123,11 @@ export default function Dashboard({ onLogout }) {
                 // 機器一覧は内側カードを二重にしないため panel をフラットに
                 <main className="panel flat">
                     <DeviceList />
+                </main>
+            )}
+            {view === "rentals" && (
+                <main className="panel flat">
+                    <RentalsList />
                 </main>
             )}
         </div>

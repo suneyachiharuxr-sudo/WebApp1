@@ -58,6 +58,10 @@ export default defineConfig({
             '^/device': {
                 target,
                 secure: false
+            },
+            '^/rental': {
+                target,
+                ecure: false
             }
         },
         port: parseInt(env.DEV_SERVER_PORT || '64828'),

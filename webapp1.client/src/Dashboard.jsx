@@ -68,8 +68,8 @@ export default function Dashboard({ onLogout }) {
 
                 <nav className="menu">
                     <button
-                        className={`menu-btn ${view === "Rentals" ? "active" : ""}`}
-                        onClick={() => setView("Rentals")}
+                        className={`menu-btn ${view === "rentals" ? "active" : ""}`}
+                        onClick={() => setView("rentals")}
                     >
                         貸出状況
                     </button>
@@ -120,7 +120,7 @@ export default function Dashboard({ onLogout }) {
 
             {view === "rentals" && (
                   <main className="panel flat">
-                        <RentalsList />     // ←コンポーネント名も複数形で
+                        <RentalsList />     
                   </main>
             )}
 

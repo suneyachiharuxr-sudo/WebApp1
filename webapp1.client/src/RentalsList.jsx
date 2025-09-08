@@ -22,7 +22,7 @@ export default function RentalsList() {
         setLoading(true);
         setErr("");
         try {
-            const res = await fetch("/rental/list");
+            const res = await fetch("/rentals/list");
             const data = await res.json();
             if (!res.ok) throw new Error(data?.message || "取得に失敗しました");
             setRows(data || []);
@@ -157,7 +157,7 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
     const checkout = async () => {
         if (!window.confirm("この機器を貸出します。よろしいですか？")) return;
         try {
-            const res = await fetch("/rental/checkout", {
+            const res = await fetch("/rentals/rent", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ assetNo: asset /* 社員番号はサーバ側でログインから解決する or 送る */ }),
@@ -174,7 +174,7 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
     const doReturn = async () => {
         if (!window.confirm("返却します。よろしいですか？")) return;
         try {
-            const res = await fetch("/rental/return", {
+            const res = await fetch("/rentals/return", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ assetNo: asset }),

@@ -118,16 +118,16 @@ export default function Dashboard({ onLogout }) {
                 </main>
             )}
 
+            {view === "rentals" && (
+                  <main className="panel flat">
+                        <RentalsList />     // ←コンポーネント名も複数形で
+                  </main>
+            )}
 
             {view === "devices" && (
                 // 機器一覧は内側カードを二重にしないため panel をフラットに
                 <main className="panel flat">
                     <DeviceList />
-                </main>
-            )}
-            {view === "rentals" && (
-                <main className="panel flat">
-                    <RentalsList />
                 </main>
             )}
         </div>

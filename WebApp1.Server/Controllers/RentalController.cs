@@ -27,62 +27,69 @@ namespace WebApp1.Server.Controllers
         [HttpGet("list")]
         public async Task<IActionResult> List([FromQuery] string? keyword = null, [FromQuery] bool onlyBorrowed = false)
         {
-            if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
+            try
+            {
+                if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
 
-            var sql = @"
+                var sql = @"
 SELECT
   d.asset_no,
   d.maker,
   d.os,
   d.location,
-  COALESCE(r.available_flag, TRUE) AS is_free,
+  COALESCE(r.available_flag, TRUE) AS is_free,   -- TRUE=空き
   r.employee_no,
+  u.name AS employee_name,                       -- ← 氏名は name
   r.rental_date,
   r.return_date,
   r.due_date
 FROM mst_device d
 LEFT JOIN trn_rental r ON r.asset_no = d.asset_no
-";  // d.delete_flag が無い環境があるので付けない
+LEFT JOIN mst_user   u ON u.employee_no = r.employee_no
+";
 
-            var where = new List<string>();
-            if (!string.IsNullOrWhiteSpace(keyword))
-            {
-                where.Add(@"(
-  d.asset_no ILIKE @kw OR d.maker ILIKE @kw OR d.os ILIKE @kw OR d.location ILIKE @kw
-  OR COALESCE(r.employee_no,'') ILIKE @kw
-)");
-            }
-            if (onlyBorrowed)
-            {
-                where.Add("COALESCE(r.available_flag, TRUE) = FALSE");
-            }
-            if (where.Count > 0) sql += " WHERE " + string.Join(" AND ", where) + "\n";
-            sql += " ORDER BY d.asset_no";
-
-            using var cmd = new NpgsqlCommand(sql, _conn);
-            if (!string.IsNullOrWhiteSpace(keyword))
-                cmd.Parameters.AddWithValue("kw", $"%{keyword.Trim()}%");
-
-            var list = new List<object>();
-            using var rd = await cmd.ExecuteReaderAsync();
-            while (await rd.ReadAsync())
-            {
-                list.Add(new
+                var where = new List<string>();
+                if (!string.IsNullOrWhiteSpace(keyword))
                 {
-                    assetNo = rd.GetString(0),
-                    maker = rd.IsDBNull(1) ? null : rd.GetString(1),
-                    os = rd.IsDBNull(2) ? null : rd.GetString(2),
-                    location = rd.IsDBNull(3) ? null : rd.GetString(3),
-                    isFree = rd.GetBoolean(4),
-                    employeeNo = rd.IsDBNull(5) ? null : rd.GetString(5),
-                    rentalDate = rd.IsDBNull(6) ? (DateTime?)null : rd.GetDateTime(6),
-                    returnDate = rd.IsDBNull(7) ? (DateTime?)null : rd.GetDateTime(7),
-                    dueDate = rd.IsDBNull(8) ? (DateTime?)null : rd.GetDateTime(8),
-                    employeeName = (string?)null   // ここでは取得しない
-                });
+                    where.Add(@"(
+  d.asset_no ILIKE @kw OR d.maker ILIKE @kw OR d.os ILIKE @kw OR d.location ILIKE @kw
+  OR COALESCE(r.employee_no,'') ILIKE @kw OR COALESCE(u.name,'') ILIKE @kw
+)");
+                }
+                if (onlyBorrowed) where.Add("COALESCE(r.available_flag, TRUE) = FALSE");
+                if (where.Count > 0) sql += " WHERE " + string.Join(" AND ", where) + "\n";
+                sql += " ORDER BY d.asset_no";
+
+                using var cmd = new NpgsqlCommand(sql, _conn);
+                if (!string.IsNullOrWhiteSpace(keyword))
+                    cmd.Parameters.AddWithValue("kw", $"%{keyword.Trim()}%");
+
+                var list = new List<object>();
+                using var rd = await cmd.ExecuteReaderAsync();
+                while (await rd.ReadAsync())
+                {
+                    list.Add(new
+                    {
+                        assetNo = rd.GetString(0),
+                        maker = rd.IsDBNull(1) ? null : rd.GetString(1),
+                        os = rd.IsDBNull(2) ? null : rd.GetString(2),
+                        location = rd.IsDBNull(3) ? null : rd.GetString(3),
+                        isFree = rd.GetBoolean(4),
+                        employeeNo = rd.IsDBNull(5) ? null : rd.GetString(5),
+                        employeeName = rd.IsDBNull(6) ? null : rd.GetString(6),
+                        rentalDate = rd.IsDBNull(7) ? (DateTime?)null : rd.GetDateTime(7),
+                        returnDate = rd.IsDBNull(8) ? (DateTime?)null : rd.GetDateTime(8),
+                        dueDate = rd.IsDBNull(9) ? (DateTime?)null : rd.GetDateTime(9),
+                    });
+                }
+                return Ok(list);
             }
-            return Ok(list);
+            catch (Exception ex)
+            {
+                return Problem(title: "一覧取得に失敗しました", detail: ex.Message, statusCode: 500);
+            }
         }
+
 
         // ===== 資産番号詳細（モーダル用） =====
         [HttpGet("asset/{assetNo}")]

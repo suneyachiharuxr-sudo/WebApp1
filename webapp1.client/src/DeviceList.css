@@ -11,7 +11,7 @@
 
 /* ① 親の panel.flat の左余白をなくす（デバイス一覧のときだけ） */
 .panel.flat {
-    padding-left: 50px; /* ← ここが効く */
+    padding-left: 80px; /* ← ここが効く */
     padding-right: 0; /* 右も要らなければ 0 に */
 }
 

@@ -23,8 +23,11 @@ export default function RentalsList() {
         setErr("");
         try {
             const res = await fetch("/rentals/list");
-            const data = await res.json();
-            if (!res.ok) throw new Error(data?.message || "取得に失敗しました");
+               if (!res.ok) {
+                     const text = await res.text().catch(() => "");
+                    throw new Error(text || `HTTP ${res.status}`);
+                   }
+              const data = await res.json();
             setRows(data || []);
         } catch (e) {
             setErr(e.message || "サーバーに接続できません");

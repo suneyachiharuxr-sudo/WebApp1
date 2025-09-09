@@ -29,8 +29,11 @@ export default function Dashboard({ onLogout }) {
         setErr("");
         try {
             const res = await fetch(`/auth/me?employeeNo=${encodeURIComponent(employeeNo)}`);
+            if (!res.ok) {
+                  const text = await res.text().catch(() => "");
+                  throw new Error(text || "取得に失敗しました");
+                }
             const data = await res.json();
-            if (!res.ok) throw new Error(data?.message || "取得に失敗しました");
             setMe(data);
         } catch (e) {
             setErr(e.message || "サーバーに接続できません");

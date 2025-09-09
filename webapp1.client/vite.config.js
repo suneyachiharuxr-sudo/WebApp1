@@ -61,7 +61,7 @@ export default defineConfig({
             },
             '^/rentals': {
                 target,
-                ecure: false
+                secure: false
             }
         },
         port: parseInt(env.DEV_SERVER_PORT || '64828'),

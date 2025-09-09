@@ -26,10 +26,10 @@ app.UseStaticFiles();
 
 // Swaggerを完全に無効化（開発環境でも起動しない）
 // Configure the HTTP request pipeline.
-// if (app.Environment.IsDevelopment())
-// {
-//     // Swaggerを起動しない
-// }
+ if (app.Environment.IsDevelopment())
+ {
+    app.UseDeveloperExceptionPage();   // ★ 追加：500 の中身をブラウザ/ログに出す
+}
 
 app.UseHttpsRedirection();
 app.UseAuthorization();

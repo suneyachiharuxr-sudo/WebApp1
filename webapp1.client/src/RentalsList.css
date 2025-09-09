@@ -9,7 +9,7 @@
 
 /* 一覧カード（丸背景） */
 .rentals-card {
-    width: min(1100px, calc(100vw - var(--sidebar-w) - 24px));
+    width: min(1100px, calc(100vw - var(--sidebar-w) - 20px));
     margin: 20px 16px 20px calc(var(--sidebar-w) + 4px);
     padding: 24px;
     background: linear-gradient(180deg,#f6f6f6 0%,#e9e9e9 100%);

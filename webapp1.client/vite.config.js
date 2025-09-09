@@ -59,7 +59,7 @@ export default defineConfig({
                 target,
                 secure: false
             },
-            '^/rental': {
+            '^/rentals': {
                 target,
                 ecure: false
             }

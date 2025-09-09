@@ -5,220 +5,139 @@ using System.Data;
 namespace WebApp1.Server.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("rentals")]
     public class RentalsController : ControllerBase
     {
         private readonly NpgsqlConnection _conn;
         public RentalsController(NpgsqlConnection conn) => _conn = conn;
 
-        // ===== DTO =====
-        public class RentRequest
-        {
-            public string AssetNo { get; set; } = string.Empty;
-            public string EmployeeNo { get; set; } = string.Empty;
-            public string EmployeeName { get; set; } = string.Empty;
-            public DateTime? DueDate { get; set; }
-        }
-        public class ReturnRequest
-        {
-            public string AssetNo { get; set; } = string.Empty;
-        }
-
-        // ===== 一覧 =====  GET /rentals/list
+        // 一覧：資産1行 + TRN_RENTAL(資産1行) を素直に左結合
+        // 「現在貸出中」= return_date IS NULL AND available_flag = FALSE AND employee_no IS NOT NULL
         [HttpGet("list")]
-        public async Task<IActionResult> List([FromQuery] string? keyword = null, [FromQuery] bool onlyBorrowed = false)
+        public async Task<IActionResult> List()
         {
-            try
-            {
-                if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
-
-                var sql = @"
+            const string sql = @"
 SELECT
+  ROW_NUMBER() OVER (ORDER BY d.asset_no) AS no,
   d.asset_no,
   d.maker,
   d.os,
   d.location,
-  COALESCE(r.available_flag, TRUE) AS available,   -- TRUE=空き
-  r.employee_no,
-  u.name AS employee_name,
+  CASE WHEN (r.return_date IS NULL AND r.available_flag = FALSE AND r.employee_no IS NOT NULL)
+       THEN r.employee_no END AS employee_no,
+  CASE WHEN (r.return_date IS NULL AND r.available_flag = FALSE AND r.employee_no IS NOT NULL)
+       THEN u.name END        AS employee_name,
   r.rental_date,
   r.return_date,
-  r.due_date
+  r.due_date,
+  -- TRUE=空き / FALSE=貸出中
+  (NOT (r.return_date IS NULL AND r.available_flag = FALSE AND r.employee_no IS NOT NULL)) AS is_free
 FROM mst_device d
 LEFT JOIN trn_rental r ON r.asset_no = d.asset_no
 LEFT JOIN mst_user   u ON u.employee_no = r.employee_no
 WHERE d.delete_flag = FALSE
-";
-                var where = new List<string>();
-                if (!string.IsNullOrWhiteSpace(keyword))
-                {
-                    where.Add(@"(
-  d.asset_no ILIKE @kw OR d.maker ILIKE @kw OR d.os ILIKE @kw OR d.location ILIKE @kw
-  OR COALESCE(u.name,'') ILIKE @kw
-)");
-                }
-                if (onlyBorrowed)
-                    where.Add("COALESCE(r.available_flag, TRUE) = FALSE");
+ORDER BY d.asset_no;";
 
-                if (where.Count > 0) sql += " AND " + string.Join(" AND ", where) + "\n";
-                sql += "ORDER BY d.asset_no";
-
-                using var cmd = new NpgsqlCommand(sql, _conn);
-                if (!string.IsNullOrWhiteSpace(keyword))
-                    cmd.Parameters.AddWithValue("kw", $"%{keyword.Trim()}%");
-
-                var list = new List<object>();
-                using var rd = await cmd.ExecuteReaderAsync();
-                while (await rd.ReadAsync())
-                {
-                    list.Add(new
-                    {
-                        assetNo = rd.GetString(0),
-                        maker = rd.GetString(1),
-                        os = rd.IsDBNull(2) ? null : rd.GetString(2),
-                        location = rd.IsDBNull(3) ? null : rd.GetString(3),
-                        isFree = rd.GetBoolean(4),
-                        employeeNo = rd.IsDBNull(5) ? null : rd.GetString(5),
-                        employeeName = rd.IsDBNull(6) ? null : rd.GetString(6),
-                        rentalDate = rd.IsDBNull(7) ? (DateTime?)null : rd.GetDateTime(7),
-                        returnDate = rd.IsDBNull(8) ? (DateTime?)null : rd.GetDateTime(8),
-                        dueDate = rd.IsDBNull(9) ? (DateTime?)null : rd.GetDateTime(9),
-                    });
-                }
-                return Ok(list);
-            }
-            catch (PostgresException ex)
-            {
-                // 列名/テーブル名のミスなど SQL 由来の原因がすぐ分かる
-                return StatusCode(500, new { message = ex.MessageText, detail = ex.Detail, position = ex.Position });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = ex.Message });
-            }
-        }
-
-
-        // ===== 詳細 =====  GET /rentals/asset/{assetNo}
-        [HttpGet("asset/{assetNo}")]
-        public async Task<IActionResult> GetAssetDetail([FromRoute] string assetNo)
-        {
-            if (string.IsNullOrWhiteSpace(assetNo)) return BadRequest(new { message = "assetNo is required" });
             if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
-
-            var sql = @"
-SELECT
-  d.asset_no, d.maker, d.os, d.memory_gb, d.storage_gb, d.gpu, d.location, d.broken_flag,
-  d.remarks, d.register_date,
-  COALESCE(r.available_flag, TRUE) AS available,          -- ← ★available_flag
-  r.employee_no, u.name AS employee_name,                 -- ← ★name
-  r.rental_date, r.return_date, r.due_date
-FROM mst_device d
-LEFT JOIN trn_rental r ON r.asset_no = d.asset_no
-LEFT JOIN mst_user   u ON u.employee_no = r.employee_no
-WHERE d.delete_flag = FALSE AND d.asset_no = @a
-";
             using var cmd = new NpgsqlCommand(sql, _conn);
-            cmd.Parameters.AddWithValue("a", assetNo.Trim());
-
             using var rd = await cmd.ExecuteReaderAsync();
-            if (!await rd.ReadAsync()) return NotFound(new { message = "機器が見つかりません" });
 
-            var res = new
+            var list = new List<object>();
+            while (await rd.ReadAsync())
             {
-                assetNo = rd.GetString(0),
-                maker = rd.GetString(1),
-                os = rd.IsDBNull(2) ? null : rd.GetString(2),
-                memoryGb = rd.IsDBNull(3) ? (int?)null : rd.GetInt32(3),
-                storageGb = rd.IsDBNull(4) ? (int?)null : rd.GetInt32(4),
-                gpu = rd.IsDBNull(5) ? null : rd.GetString(5),
-                location = rd.IsDBNull(6) ? null : rd.GetString(6),
-                brokenFlag = rd.GetBoolean(7),
-                remarks = rd.IsDBNull(8) ? null : rd.GetString(8),
-                registerDate = rd.IsDBNull(9) ? (DateTime?)null : rd.GetDateTime(9),
-                isFree = rd.GetBoolean(10),
-                employeeNo = rd.IsDBNull(11) ? null : rd.GetString(11),
-                employeeName = rd.IsDBNull(12) ? null : rd.GetString(12),
-                rentalDate = rd.IsDBNull(13) ? (DateTime?)null : rd.GetDateTime(13),
-                returnDate = rd.IsDBNull(14) ? (DateTime?)null : rd.GetDateTime(14),
-                dueDate = rd.IsDBNull(15) ? (DateTime?)null : rd.GetDateTime(15)
-            };
-            return Ok(res);
+                list.Add(new
+                {
+                    no = rd.GetInt32(rd.GetOrdinal("no")),
+                    assetNo = rd.GetString(rd.GetOrdinal("asset_no")),
+                    maker = rd.IsDBNull(rd.GetOrdinal("maker")) ? "" : rd.GetString(rd.GetOrdinal("maker")),
+                    os = rd.IsDBNull(rd.GetOrdinal("os")) ? "" : rd.GetString(rd.GetOrdinal("os")),
+                    location = rd.IsDBNull(rd.GetOrdinal("location")) ? "" : rd.GetString(rd.GetOrdinal("location")),
+                    employeeNo = rd.IsDBNull(rd.GetOrdinal("employee_no")) ? null : rd.GetString(rd.GetOrdinal("employee_no")),
+                    employeeName = rd.IsDBNull(rd.GetOrdinal("employee_name")) ? null : rd.GetString(rd.GetOrdinal("employee_name")),
+                    rentalDate = rd.IsDBNull(rd.GetOrdinal("rental_date")) ? (DateTime?)null : rd.GetDateTime(rd.GetOrdinal("rental_date")),
+                    returnDate = rd.IsDBNull(rd.GetOrdinal("return_date")) ? (DateTime?)null : rd.GetDateTime(rd.GetOrdinal("return_date")),
+                    dueDate = rd.IsDBNull(rd.GetOrdinal("due_date")) ? (DateTime?)null : rd.GetDateTime(rd.GetOrdinal("due_date")),
+                    isFree = rd.GetBoolean(rd.GetOrdinal("is_free"))
+                });
+            }
+            return Ok(list);
         }
 
-        // ===== 貸出 =====  POST /rentals/rent
+        public record RentReq(string AssetNo, string EmployeeNo);
+
+        // 貸出：行をINSERTしない。既存の資産行を「貸出中」にUPDATE
         [HttpPost("rent")]
-        public async Task<IActionResult> Rent([FromBody] RentRequest req)
+        public async Task<IActionResult> Rent([FromBody] RentReq req)
         {
-            var asset = (req.AssetNo ?? "").Trim();
-            if (string.IsNullOrEmpty(asset)) return BadRequest(new { message = "assetNo is required" });
-            if (string.IsNullOrWhiteSpace(req.EmployeeNo) || string.IsNullOrWhiteSpace(req.EmployeeName))
-                return BadRequest(new { message = "社員番号と社員氏名は必須です" });
+            if (string.IsNullOrWhiteSpace(req.AssetNo)) return BadRequest(new { message = "assetNo is required" });
+            if (string.IsNullOrWhiteSpace(req.EmployeeNo)) return BadRequest(new { message = "employeeNo is required" });
 
             if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
-            await using var tx = await _conn.BeginTransactionAsync();
 
-            using (var chk = new NpgsqlCommand("SELECT 1 FROM mst_device WHERE asset_no=@a AND delete_flag=FALSE", _conn, (NpgsqlTransaction)tx))
+            // 既に貸出中なら弾く（一覧と同じ定義）
+            const string chk = @"
+SELECT 1
+FROM trn_rental
+WHERE asset_no = @asset
+  AND return_date IS NULL
+  AND available_flag = FALSE
+  AND employee_no IS NOT NULL
+LIMIT 1;";
+            using (var c = new NpgsqlCommand(chk, _conn))
             {
-                chk.Parameters.AddWithValue("a", asset);
-                if (await chk.ExecuteScalarAsync() == null)
-                    return NotFound(new { message = "機器が見つかりません（削除済み含む）" });
+                c.Parameters.AddWithValue("asset", req.AssetNo.Trim());
+                var exists = await c.ExecuteScalarAsync();
+                if (exists != null) return Conflict(new { message = "この資産は未返却の貸出が存在します" });
             }
 
-            bool isFree = true;
-            using (var cur = new NpgsqlCommand("SELECT available_flag FROM trn_rental WHERE asset_no=@a FOR UPDATE", _conn, (NpgsqlTransaction)tx))
+            // 貸出に更新（空き状態を前提に上書き）
+            const string upd = @"
+UPDATE trn_rental
+SET employee_no   = @emp,
+    rental_date   = CURRENT_DATE,
+    return_date   = NULL,
+    due_date      = CURRENT_DATE + INTERVAL '7 days',
+    inventory_date= CURRENT_DATE,
+    remarks       = COALESCE(remarks, ''),
+    available_flag= FALSE
+WHERE asset_no = @asset;";
+            using (var u = new NpgsqlCommand(upd, _conn))
             {
-                cur.Parameters.AddWithValue("a", asset);
-                var v = await cur.ExecuteScalarAsync();
-                if (v != null) isFree = (bool)v;
-            }
-            if (!isFree) return Conflict(new { message = "この機器は既に貸出中です" });
-
-            var sql = @"
-INSERT INTO trn_rental(asset_no, available_flag, employee_no, rental_date, return_date, due_date)
-VALUES (@a, FALSE, @eno, CURRENT_TIMESTAMP, NULL, @due)
-ON CONFLICT (asset_no) DO UPDATE SET
-  available_flag = EXCLUDED.available_flag,
-  employee_no    = EXCLUDED.employee_no,
-  rental_date    = EXCLUDED.rental_date,
-  return_date    = EXCLUDED.return_date,
-  due_date       = EXCLUDED.due_date
-";
-            using (var cmd = new NpgsqlCommand(sql, _conn, (NpgsqlTransaction)tx))
-            {
-                cmd.Parameters.AddWithValue("a", asset);
-                cmd.Parameters.AddWithValue("eno", req.EmployeeNo.Trim());
-                cmd.Parameters.AddWithValue("due", (object?)req.DueDate ?? DBNull.Value);
-                await cmd.ExecuteNonQueryAsync();
+                u.Parameters.AddWithValue("asset", req.AssetNo.Trim());
+                u.Parameters.AddWithValue("emp", req.EmployeeNo.Trim());
+                var n = await u.ExecuteNonQueryAsync();
+                if (n == 0)
+                    return NotFound(new { message = "資産番号が見つかりません（TRN_RENTALに初期行を用意してください）" });
             }
 
-            await tx.CommitAsync();
-            return Ok(new { message = "貸出処理を登録しました" });
+            return Ok(new { message = "貸出しました" });
         }
 
-        // ===== 返却 =====  POST /rentals/return
+        public record ReturnReq(string AssetNo);
+
+        // 返却：現在貸出中の行を返却に更新
         [HttpPost("return")]
-        public async Task<IActionResult> Return([FromBody] ReturnRequest req)
+        public async Task<IActionResult> Return([FromBody] ReturnReq req)
         {
-            var asset = (req.AssetNo ?? "").Trim();
-            if (string.IsNullOrEmpty(asset)) return BadRequest(new { message = "assetNo is required" });
+            if (string.IsNullOrWhiteSpace(req.AssetNo))
+                return BadRequest(new { message = "assetNo is required" });
 
             if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
-            await using var tx = await _conn.BeginTransactionAsync();
 
-            var sql = @"
+            const string upd = @"
 UPDATE trn_rental
-   SET available_flag = TRUE,
-       return_date    = CURRENT_TIMESTAMP
- WHERE asset_no = @a AND COALESCE(available_flag, TRUE) = FALSE";
-            using var cmd = new NpgsqlCommand(sql, _conn, (NpgsqlTransaction)tx);
-            cmd.Parameters.AddWithValue("a", asset);
-            var n = await cmd.ExecuteNonQueryAsync();
+SET return_date    = NOW(),
+    available_flag = TRUE
+WHERE asset_no     = @asset
+  AND return_date IS NULL
+  AND available_flag = FALSE;";
+            using var ucmd = new NpgsqlCommand(upd, _conn);
+            ucmd.Parameters.AddWithValue("asset", req.AssetNo.Trim());
+            var n = await ucmd.ExecuteNonQueryAsync();
             if (n == 0)
-                return NotFound(new { message = "貸出中のレコードが見つかりません" });
+                return NotFound(new { message = "返却対象がありません（すでに空きor行が未作成）" });
 
-            await tx.CommitAsync();
-            return Ok(new { message = "返却処理を登録しました" });
+            return Ok(new { message = "返却しました" });
         }
     }
 }

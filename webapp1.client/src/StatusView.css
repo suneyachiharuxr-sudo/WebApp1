@@ -67,4 +67,15 @@
     color: #c33;
 }
 
+.renting-icon {
+    width: 22px;
+    height: 22px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.status-detail.overdue {
+    color: #d40000;
+    font-weight: 800;
+}
 

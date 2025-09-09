@@ -2,27 +2,26 @@
 import "./Dashboard.css";
 import "./StatusView.css";
 
-// 機器一覧を使う場合は path をあなたの構成に合わせてください
-// 例: src/views/Devices/DeviceList.jsx
 import RentalsList from "./RentalsList.jsx";
 import DeviceList from "./DeviceList.jsx";
 
-
 export default function Dashboard({ onLogout }) {
-    //ログイン情報
+    // ログイン情報
     const auth = useMemo(() => {
         try { return JSON.parse(localStorage.getItem("auth") || "{}"); }
         catch { return {}; }
     }, []);
     const employeeNo = auth?.employeeNo;
-    //画面状態
-    const [view, setView] = useState("status"); // "status" | "devices"
+
+    // 画面状態
+    const [view, setView] = useState("status"); // "status" | "rentals" | "devices" | "users"
     const [me, setMe] = useState(null);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
 
     const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "-");
-    //自分のレンタル状況を取得
+
+    // 自分のレンタル状況を取得
     const loadMe = async () => {
         if (!employeeNo) return;
         setLoading(true);
@@ -30,9 +29,9 @@ export default function Dashboard({ onLogout }) {
         try {
             const res = await fetch(`/auth/me?employeeNo=${encodeURIComponent(employeeNo)}`);
             if (!res.ok) {
-                  const text = await res.text().catch(() => "");
-                  throw new Error(text || "取得に失敗しました");
-                }
+                const text = await res.text().catch(() => "");
+                throw new Error(text || "取得に失敗しました");
+            }
             const data = await res.json();
             setMe(data);
         } catch (e) {
@@ -41,9 +40,9 @@ export default function Dashboard({ onLogout }) {
             setLoading(false);
         }
     };
-
     useEffect(() => { loadMe(); }, [employeeNo]);
-    //返却
+
+    // 返却
     const handleReturn = async () => {
         if (!me?.employeeNo) return;
         if (!window.confirm("返却処理を実行します。よろしいですか？")) return;
@@ -55,7 +54,8 @@ export default function Dashboard({ onLogout }) {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data?.message || "返却に失敗しました");
-            await loadMe();
+            await loadMe();        // ← 貸出が消える
+            setView("status");     // ← トップ（貸出なし）へ
             alert("返却が完了しました");
         } catch (e) {
             alert(e.message || "返却に失敗しました");
@@ -64,31 +64,27 @@ export default function Dashboard({ onLogout }) {
 
     return (
         <div className="layout">
-            {/* 左サイドバー（最初のグレー配色に戻す） */}
+            {/* 左サイドバー */}
             <aside className="sidebar fixed">
                 <div className="hello">こんにちは</div>
                 <div className="username">{me?.name || "USER名"}</div>
 
                 <nav className="menu">
-                    <button
-                        className={`menu-btn ${view === "rentals" ? "active" : ""}`}
-                        onClick={() => setView("rentals")}
-                    >
+                    <button className={`menu-btn ${view === "rentals" ? "active" : ""}`} onClick={() => setView("rentals")}>
                         貸出状況
                     </button>
-                    <button
-                        className={`menu-btn ${view === "devices" ? "active" : ""}`}
-                        onClick={() => setView("devices")}
-                    >
+                    <button className={`menu-btn ${view === "devices" ? "active" : ""}`} onClick={() => setView("devices")}>
                         機器一覧
                     </button>
-                    <button className="menu-btn" disabled>ユーザー一覧</button>
+                    <button className={`menu-btn ${view === "users" ? "active" : ""}`} onClick={() => setView("users")} disabled>
+                        ユーザー一覧
+                    </button>
                 </nav>
 
                 <button className="logout" onClick={onLogout}>LOGOUT</button>
             </aside>
 
-            {/* 右側 */}
+            {/* 右側：個人ステータス */}
             {view === "status" && (
                 <main className="panel flat">
                     <div className="status-card">
@@ -102,16 +98,23 @@ export default function Dashboard({ onLogout }) {
 
                                 <div className="status-row">
                                     <span className="status-label">貸出状態：</span>
-                                    <span className={`status-badge ${me?.rental?.status === "貸出中" ? "bad" : "good"}`}>
-                                        {me?.rental?.status === "貸出中" ? "貸出中" : "なし"}
-                                    </span>
+                                    {me?.rental ? (
+                                        <>
+                                            <img src="/icons/renting.png" alt="貸出中" className="renting-icon" />
+                                            <span className="status-badge bad">貸出中</span>
+                                        </>
+                                    ) : (
+                                        <span className="status-badge good">なし</span>
+                                    )}
                                 </div>
 
-                                {me?.rental?.status === "貸出中" && (
+                                {me?.rental && (
                                     <>
                                         <div className="status-detail">貸出機器：<strong>{me.rental.assetNo || "-"}</strong></div>
                                         <div className="status-detail">貸 出 日：{fmtDate(me.rental.rentalDate)}</div>
-                                        <div className="status-detail">締 切 日：{fmtDate(me.rental.dueDate)}</div>
+                                        <div className={`status-detail ${me.rental.overdue ? "overdue" : ""}`}>
+                                            返却締切日：{fmtDate(me.rental.dueDate)}
+                                        </div>
                                         <button className="status-return" onClick={handleReturn}>返却</button>
                                     </>
                                 )}
@@ -121,16 +124,24 @@ export default function Dashboard({ onLogout }) {
                 </main>
             )}
 
+            {/* 右側：貸出状況一覧 */}
             {view === "rentals" && (
-                  <main className="panel flat">
-                        <RentalsList />     
-                  </main>
+                <main className="panel flat">
+                    <RentalsList />
+                </main>
             )}
 
+            {/* 右側：機器一覧 */}
             {view === "devices" && (
-                // 機器一覧は内側カードを二重にしないため panel をフラットに
                 <main className="panel flat">
                     <DeviceList />
+                </main>
+            )}
+
+            {/* 右側：ユーザー一覧（未実装プレースホルダ） */}
+            {view === "users" && (
+                <main className="panel flat">
+                    <div className="status-card">ユーザー一覧は未実装です</div>
                 </main>
             )}
         </div>

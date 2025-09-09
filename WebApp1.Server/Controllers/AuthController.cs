@@ -13,19 +13,18 @@ namespace WebApp1.Server.Controllers
         private readonly NpgsqlConnection _connection;
         public AuthController(NpgsqlConnection connection) => _connection = connection;
 
-        // ---- DTO ----
+        // ===== DTO =====
         public class LoginRequest
         {
             public string EmployeeNo { get; set; } = string.Empty;
             public string Password { get; set; } = string.Empty;
         }
-
         public class ReturnRequest
         {
             public string EmployeeNo { get; set; } = string.Empty;
         }
 
-        // ---- /auth/login : 開発用・平文比較 ----
+        // ===== /auth/login : 開発用（平文比較） =====
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest login)
         {
@@ -43,12 +42,11 @@ namespace WebApp1.Server.Controllers
                 using var cmd = new NpgsqlCommand(sql, _connection);
                 cmd.Parameters.AddWithValue("employee_no", emp);
 
-                using var reader = await cmd.ExecuteReaderAsync();
+                using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow);
                 if (!await reader.ReadAsync())
                     return Unauthorized(new { message = "IDまたはパスワードが正しくありません" });
 
                 var dbValue = reader.IsDBNull(0) ? null : reader.GetString(0)?.Trim();
-
                 if (!string.Equals(dbValue, pass, StringComparison.Ordinal))
                     return Unauthorized(new { message = "IDまたはパスワードが正しくありません" });
 
@@ -61,7 +59,9 @@ namespace WebApp1.Server.Controllers
             }
         }
 
-        // ---- /auth/me : 社員名＋貸出状況を返す ----
+        // ===== /auth/me : 社員氏名＋現在貸出（貸出中のみ） =====
+        // ルール: return_date IS NULL かつ available_flag = FALSE が「貸出中」
+        // available_flag は TRUE=空き / FALSE=貸出中 とする
         [HttpGet("me")]
         public async Task<IActionResult> Me([FromQuery] string employeeNo)
         {
@@ -75,61 +75,52 @@ namespace WebApp1.Server.Controllers
                 if (_connection.State != ConnectionState.Open)
                     await _connection.OpenAsync();
 
-                // 1) 氏名（MST_USER）
-                string? name;
-                {
-                    const string sql = @"SELECT name
-                                           FROM mst_user
-                                          WHERE employee_no = @emp AND delete_flag = FALSE";
-                    using var cmd = new NpgsqlCommand(sql, _connection);
-                    cmd.Parameters.AddWithValue("emp", emp);
-                    var obj = await cmd.ExecuteScalarAsync();
-                    name = obj as string;
-                }
-                if (string.IsNullOrEmpty(name))
+                const string sql = @"
+WITH me AS (
+  SELECT u.employee_no, u.name
+  FROM mst_user u
+  WHERE u.employee_no = @emp AND u.delete_flag = FALSE
+  LIMIT 1
+),
+rent AS (
+  SELECT asset_no, rental_date, due_date
+  FROM trn_rental
+  WHERE employee_no = @emp
+    AND return_date IS NULL
+    AND available_flag = FALSE
+  ORDER BY rental_date DESC, rental_id DESC
+  LIMIT 1
+)
+SELECT m.employee_no, m.name,
+       r.asset_no, r.rental_date, r.due_date,
+       (r.due_date IS NOT NULL AND r.due_date < NOW()) AS overdue
+FROM me m
+LEFT JOIN rent r ON TRUE;";
+
+                using var cmd = new NpgsqlCommand(sql, _connection);
+                cmd.Parameters.AddWithValue("emp", emp);
+
+                using var rd = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow);
+                if (!await rd.ReadAsync())
                     return NotFound(new { message = "ユーザーが見つかりません", employeeNo = emp });
 
-                // 2) 貸出状況（TRN_RENTAL）
-                // ルール: return_date が NULL かつ available_flag = TRUE が「貸出中」
-                string rentalStatus = "なし";
-                string? assetNo = null;
-                DateTime? rentalDate = null;
-                DateTime? dueDate = null;
+                var hasRental = !rd.IsDBNull(rd.GetOrdinal("asset_no"));
 
+                var body = new
                 {
-                    const string sql = @"
-                        SELECT asset_no, rental_date, due_date
-                          FROM trn_rental
-                         WHERE employee_no = @emp
-                           AND return_date IS NULL
-                           AND available_flag = FALSE
-                         ORDER BY rental_date DESC
-                         LIMIT 1";
-                    using var cmd = new NpgsqlCommand(sql, _connection);
-                    cmd.Parameters.AddWithValue("emp", emp);
-
-                    using var rd = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow);
-                    if (await rd.ReadAsync())
+                    employeeNo = rd.GetString(rd.GetOrdinal("employee_no")),
+                    name = rd.GetString(rd.GetOrdinal("name")),
+                    rental = hasRental ? new
                     {
-                        rentalStatus = "貸出中";
-                        assetNo = rd.IsDBNull(0) ? null : rd.GetString(0);
-                        rentalDate = rd.IsDBNull(1) ? null : rd.GetFieldValue<DateTime>(1);
-                        dueDate = rd.IsDBNull(2) ? null : rd.GetFieldValue<DateTime>(2);
-                    }
-                }
+                        status = "貸出中",
+                        assetNo = rd.GetString(rd.GetOrdinal("asset_no")),
+                        rentalDate = rd.IsDBNull(rd.GetOrdinal("rental_date")) ? (DateTime?)null : rd.GetDateTime(rd.GetOrdinal("rental_date")),
+                        dueDate = rd.IsDBNull(rd.GetOrdinal("due_date")) ? (DateTime?)null : rd.GetDateTime(rd.GetOrdinal("due_date")),
+                        overdue = rd.GetBoolean(rd.GetOrdinal("overdue"))
+                    } : null
+                };
 
-                return Ok(new
-                {
-                    employeeNo = emp,
-                    name,
-                    rental = new
-                    {
-                        status = rentalStatus, // "貸出中" | "なし"
-                        assetNo,
-                        rentalDate,
-                        dueDate
-                    }
-                });
+                return Ok(body);
             }
             finally
             {
@@ -138,7 +129,7 @@ namespace WebApp1.Server.Controllers
             }
         }
 
-        // ---- /auth/return : 未返却の最新1件を返却扱いに更新 ----
+        // ===== /auth/return : 未返却の最新1件を返却に更新 =====
         [HttpPost("return")]
         public async Task<IActionResult> Return([FromBody] ReturnRequest req)
         {
@@ -151,26 +142,38 @@ namespace WebApp1.Server.Controllers
                 if (_connection.State != ConnectionState.Open)
                     await _connection.OpenAsync();
 
-                // available_flag は「TRUE=貸出中」を前提。逆運用なら TRUE/FALSE を反転してください。
-                const string sql = @"
-                    UPDATE trn_rental
-                       SET return_date   = CURRENT_DATE,
-                           available_flag = TRUE
-                     WHERE ctid IN (
-                       SELECT ctid
-                         FROM trn_rental
-                        WHERE employee_no = @emp
-                          AND return_date IS NULL
-                          AND available_flag = FALSE
-                        ORDER BY rental_date DESC
-                        LIMIT 1
-                     )";
-                using var cmd = new NpgsqlCommand(sql, _connection);
-                cmd.Parameters.AddWithValue("emp", emp);
-
-                var affected = await cmd.ExecuteNonQueryAsync();
-                if (affected == 0)
+                // 最新の未返却レコード（貸出中）を rental_id で取得
+                const string pickSql = @"
+SELECT rental_id
+FROM trn_rental
+WHERE employee_no = @emp
+  AND return_date IS NULL
+  AND available_flag = FALSE
+ORDER BY rental_date DESC, rental_id DESC
+LIMIT 1;";
+                long? rentalId = null;
+                using (var pick = new NpgsqlCommand(pickSql, _connection))
+                {
+                    pick.Parameters.AddWithValue("emp", emp);
+                    var o = await pick.ExecuteScalarAsync();
+                    if (o is long l) rentalId = l;
+                    else if (o is int i) rentalId = i;
+                }
+                if (rentalId is null)
                     return NotFound(new { message = "返却対象の貸出が見つかりません" });
+
+                // 返却更新：NOW() で日時、available_flag を TRUE（＝空き）へ
+                const string updSql = @"
+UPDATE trn_rental
+SET return_date    = NOW(),
+    available_flag = TRUE
+WHERE rental_id    = @rid;";
+                using var upd = new NpgsqlCommand(updSql, _connection);
+                upd.Parameters.AddWithValue("rid", rentalId.Value);
+
+                var affected = await upd.ExecuteNonQueryAsync();
+                if (affected == 0)
+                    return NotFound(new { message = "返却更新に失敗しました" });
 
                 return Ok(new { message = "返却完了" });
             }
@@ -181,7 +184,7 @@ namespace WebApp1.Server.Controllers
             }
         }
 
-        // （未使用：必要ならハッシュ関数を再利用できます）
+        // 参考：将来ハッシュ認証に切替えるとき用
         private static string ComputeSha256Hash(string rawData)
         {
             using var sha256 = SHA256.Create();

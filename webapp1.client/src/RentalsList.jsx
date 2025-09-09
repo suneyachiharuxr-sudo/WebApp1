@@ -1,34 +1,39 @@
 ﻿// src/RentalsList.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./RentalsList.css";
+
+/* ===== 共通: 空レスでも落ちない JSON パーサ ===== */
+async function readJsonSafe(res) {
+    const text = await res.text(); // 空でもOK
+    if (!text) return {};
+    try {
+        return JSON.parse(text);
+    } catch {
+        return {};
+    }
+}
 
 /**
  * 貸出状況一覧
- * - /rental/list から左結合の結果を取得
- *   期待フィールド:
- *   no, assetNo, maker, os, location,
- *   employeeNo, employeeName, rentalDate, returnDate, dueDate
- * - 資産番号クリックで「機器貸出（詳細）」モーダルを開く
+ * - /rentals/list を表示
+ * - 資産番号クリックで機器詳細モーダル
+ * - モーダルから /rentals/rent /rentals/return を実行
  */
 export default function RentalsList() {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
 
-    // モーダル
-    const [openAsset, setOpenAsset] = useState(null); // { assetNo, ...row }
+    const [openAsset, setOpenAsset] = useState(null);
 
     const fetchAll = async () => {
         setLoading(true);
         setErr("");
         try {
             const res = await fetch("/rentals/list");
-               if (!res.ok) {
-                     const text = await res.text().catch(() => "");
-                    throw new Error(text || `HTTP ${res.status}`);
-                   }
-              const data = await res.json();
-            setRows(data || []);
+            const data = await readJsonSafe(res);
+            if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+            setRows(Array.isArray(data) ? data : []);
         } catch (e) {
             setErr(e.message || "サーバーに接続できません");
         } finally {
@@ -36,10 +41,9 @@ export default function RentalsList() {
         }
     };
 
-    useEffect(() => { fetchAll(); }, []);
-
-    const openDialog = (row) => setOpenAsset(row);
-    const closeDialog = () => setOpenAsset(null);
+    useEffect(() => {
+        fetchAll();
+    }, []);
 
     const fmt = (d) => (d ? new Date(d).toLocaleDateString() : "");
 
@@ -47,7 +51,9 @@ export default function RentalsList() {
         <section className="rentals-card">
             <div className="rentals-head">
                 <h2 className="rentals-title">貸出状況一覧</h2>
-                <button className="btn ghost" onClick={fetchAll}>⟳ 再読込</button>
+                <button className="btn ghost" onClick={fetchAll}>
+                    ⟳ 再読込
+                </button>
             </div>
 
             {loading && <div className="msg">読み込み中…</div>}
@@ -72,35 +78,34 @@ export default function RentalsList() {
                             </tr>
                         </thead>
                         <tbody>
-                            {rows.map((r, i) => {
-                                const empty = !r.employeeNo; // 社員番号NULLで空き判定
-                                return (
-                                    <tr key={`${r.assetNo}-${i}`}>
-                                        <td>{r.no ?? i + 1}</td>
-                                        <td className="cell-link">
-                                            <button className="link" onClick={() => openDialog(r)}>
-                                                {r.assetNo}
-                                            </button>
-                                        </td>
-                                        <td>{r.maker || ""}</td>
-                                        <td>{r.os || ""}</td>
-                                        <td>{r.location || ""}</td>
-                                        <td>{r.employeeNo || ""}</td>
-                                        <td>{r.employeeName || ""}</td>
-                                        <td>{fmt(r.rentalDate)}</td>
-                                        <td>{fmt(r.returnDate)}</td>
-                                        <td>{fmt(r.dueDate)}</td>
-                                        <td>
-                                            <span className={`badge ${empty ? "free" : "busy"}`}>
-                                                {empty ? "空き" : "貸出中"}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {rows.map((r, i) => (
+                                <tr key={`${r.assetNo}-${i}`}>
+                                    <td>{r.no ?? i + 1}</td>
+                                    <td className="cell-link">
+                                        <button className="link" onClick={() => setOpenAsset(r)}>
+                                            {r.assetNo}
+                                        </button>
+                                    </td>
+                                    <td>{r.maker || ""}</td>
+                                    <td>{r.os || ""}</td>
+                                    <td>{r.location || ""}</td>
+                                    <td>{r.employeeNo || ""}</td>
+                                    <td>{r.employeeName || ""}</td>
+                                    <td>{fmt(r.rentalDate)}</td>
+                                    <td>{fmt(r.returnDate)}</td>
+                                    <td>{fmt(r.dueDate)}</td>
+                                    <td>
+                                        <span className={`badge ${r.isFree ? "free" : "busy"}`}>
+                                            {r.isFree ? "空き" : "貸出中"}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
                             {rows.length === 0 && (
                                 <tr>
-                                    <td colSpan={11} className="empty">データがありません</td>
+                                    <td colSpan={11} className="empty">
+                                        データがありません
+                                    </td>
                                 </tr>
                             )}
                         </tbody>
@@ -111,10 +116,10 @@ export default function RentalsList() {
             {openAsset && (
                 <DeviceRentDialog
                     row={openAsset}
-                    onClose={closeDialog}
+                    onClose={() => setOpenAsset(null)}
                     onChanged={async () => {
                         await fetchAll();
-                        closeDialog();
+                        setOpenAsset(null);
                     }}
                 />
             )}
@@ -122,29 +127,46 @@ export default function RentalsList() {
     );
 }
 
-/** 機器貸出ダイアログ
- * - 画面表示：MST_DEVICE詳細を表示（必要な拡張項目は /device/list の中から同資産番号を抽出）
- * - 貸出：/rental/checkout
- * - 返却：/rental/return
- */
+/* ========= モーダル ========= */
 function DeviceRentDialog({ row, onClose, onChanged }) {
-    const [detail, setDetail] = useState(null); // MST_DEVICE詳細
+    const [detail, setDetail] = useState(null);
+    const [latestRow, setLatestRow] = useState(row); // 一覧の行→開いたら最新に更新
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
 
     const asset = row.assetNo;
+
+    // ログイン情報から社員番号
+    const auth = useMemo(() => {
+        try {
+            return JSON.parse(localStorage.getItem("auth") || "{}");
+        } catch {
+            return {};
+        }
+    }, []);
+    const employeeNo = auth?.employeeNo;
 
     useEffect(() => {
         (async () => {
             setLoading(true);
             setErr("");
             try {
-                // 簡単実装：/device/list を引いて該当 asset を抽出
-                const res = await fetch("/device/list");
-                const list = await res.json();
-                if (!res.ok) throw new Error(list?.message || "機器情報の取得に失敗しました");
-                const found = (list || []).find((x) => x.assetNo === asset);
-                setDetail(found || null);
+                // 1) 機器詳細
+                const resDev = await fetch(`/device/${encodeURIComponent(asset)}`);
+                const dev = await readJsonSafe(resDev);
+                if (!resDev.ok)
+                    throw new Error(dev?.message || "機器情報の取得に失敗しました");
+                setDetail(dev);
+
+                // 2) 最新状況（開いてから状態が変わっていないか確認）
+                const resList = await fetch("/rentals/list");
+                const list = await readJsonSafe(resList);
+                if (!resList.ok)
+                    throw new Error(list?.message || "最新の貸出状況取得に失敗しました");
+                const fresh = (Array.isArray(list) ? list : []).find(
+                    (x) => x.assetNo === asset
+                );
+                if (fresh) setLatestRow(fresh);
             } catch (e) {
                 setErr(e.message || "サーバーに接続できません");
             } finally {
@@ -154,19 +176,30 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
     }, [asset]);
 
     const fmt = (d) => (d ? new Date(d).toLocaleDateString() : "");
-    const cap = (n) =>
-        n == null ? "" : n >= 1024 ? `${n / 1024}TB` : `${n}GB`;
+    const cap = (n) => (n == null ? "" : n >= 1024 ? `${n / 1024}TB` : `${n}GB`);
+
+    const busy = !latestRow?.isFree;
 
     const checkout = async () => {
+        if (busy) {
+            alert("この資産は未返却の貸出が存在します");
+            return;
+        }
+        if (!employeeNo) {
+            alert("ログイン情報が見つかりません");
+            return;
+        }
         if (!window.confirm("この機器を貸出します。よろしいですか？")) return;
+
         try {
             const res = await fetch("/rentals/rent", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ assetNo: asset /* 社員番号はサーバ側でログインから解決する or 送る */ }),
+                body: JSON.stringify({ assetNo: asset, employeeNo }),
             });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data?.message || "貸出に失敗しました");
+            const data = await readJsonSafe(res);
+            if (!res.ok)
+                throw new Error(data?.message || `貸出に失敗しました (HTTP ${res.status})`);
             alert("貸出しました");
             onChanged?.();
         } catch (e) {
@@ -182,8 +215,9 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ assetNo: asset }),
             });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data?.message || "返却に失敗しました");
+            const data = await readJsonSafe(res);
+            if (!res.ok)
+                throw new Error(data?.message || `返却に失敗しました (HTTP ${res.status})`);
             alert("返却しました");
             onChanged?.();
         } catch (e) {
@@ -191,14 +225,14 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
         }
     };
 
-    const busy = !!row.employeeNo; // 一覧の行基準で貸出中か判定
-
     return (
         <div className="modal-backdrop">
             <div className="rent-modal">
                 <div className="rent-modal__header">
                     <div>機器情報</div>
-                    <button className="btn ghost" onClick={onClose}>×</button>
+                    <button className="btn ghost" onClick={onClose}>
+                        ×
+                    </button>
                 </div>
 
                 <div className="rent-modal__body">
@@ -207,16 +241,34 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
 
                     {!loading && !err && (
                         <>
+                            {latestRow && row && latestRow.isFree !== row.isFree && (
+                                <div className="warn">
+                                    表示中に状態が更新されました：現在は
+                                    <b>{latestRow.isFree ? "空き" : "貸出中"}</b>です
+                                </div>
+                            )}
+
                             <div className="kv">
-                                <div className="k">資産番号</div><div className="v">{asset}</div>
-                                <div className="k">メーカー</div><div className="v">{detail?.maker || row.maker || ""}</div>
-                                <div className="k">OS</div><div className="v">{detail?.os ?? row.os ?? ""}</div>
-                                <div className="k">メモリ</div><div className="v">{detail?.memoryGb != null ? `${detail.memoryGb}GB` : ""}</div>
-                                <div className="k">容量</div><div className="v">{cap(detail?.storageGb)}</div>
-                                <div className="k">GPU</div><div className="v">{detail?.gpu || ""}</div>
-                                <div className="k">故障</div><div className="v">{detail?.brokenFlag ? "〇" : ""}</div>
-                                <div className="k">備考</div><div className="v">{detail?.remarks || ""}</div>
-                                <div className="k">登録日</div><div className="v">{fmt(detail?.registerDate)}</div>
+                                <div className="k">資産番号</div>
+                                <div className="v">{asset}</div>
+                                <div className="k">メーカー</div>
+                                <div className="v">{detail?.maker || row.maker || ""}</div>
+                                <div className="k">OS</div>
+                                <div className="v">{detail?.os ?? row.os ?? ""}</div>
+                                <div className="k">メモリ</div>
+                                <div className="v">
+                                    {detail?.memoryGb != null ? `${detail.memoryGb}GB` : ""}
+                                </div>
+                                <div className="k">容量</div>
+                                <div className="v">{cap(detail?.storageGb)}</div>
+                                <div className="k">GPU</div>
+                                <div className="v">{detail?.gpu || ""}</div>
+                                <div className="k">故障</div>
+                                <div className="v">{detail?.brokenFlag ? "〇" : ""}</div>
+                                <div className="k">備考</div>
+                                <div className="v">{detail?.remarks || ""}</div>
+                                <div className="k">登録日</div>
+                                <div className="v">{fmt(detail?.registerDate)}</div>
                             </div>
 
                             <hr className="sep" />
@@ -224,11 +276,16 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
                             <div className="kv">
                                 <div className="k">状態</div>
                                 <div className="v">
-                                    <span className={`badge ${busy ? "busy" : "free"}`}>{busy ? "貸出中" : "空き"}</span>
+                                    <span className={`badge ${busy ? "busy" : "free"}`}>
+                                        {busy ? "貸出中" : "空き"}
+                                    </span>
                                 </div>
-                                <div className="k">使用者</div><div className="v">{row.employeeName || ""}</div>
-                                <div className="k">貸出日</div><div className="v">{fmt(row.rentalDate)}</div>
-                                <div className="k">返却締切日</div><div className="v">{fmt(row.dueDate)}</div>
+                                <div className="k">使用者</div>
+                                <div className="v">{latestRow?.employeeName || ""}</div>
+                                <div className="k">貸出日</div>
+                                <div className="v">{fmt(latestRow?.rentalDate)}</div>
+                                <div className="k">返却締切日</div>
+                                <div className="v">{fmt(latestRow?.dueDate)}</div>
                             </div>
                         </>
                     )}
@@ -236,11 +293,17 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
 
                 <div className="rent-modal__foot">
                     {!busy ? (
-                        <button className="btn primary" onClick={checkout}>貸出</button>
+                        <button className="btn primary" onClick={checkout}>
+                            貸出
+                        </button>
                     ) : (
-                        <button className="btn danger" onClick={doReturn}>返却</button>
+                        <button className="btn danger" onClick={doReturn}>
+                            返却
+                        </button>
                     )}
-                    <button className="btn" onClick={onClose}>キャンセル</button>
+                    <button className="btn" onClick={onClose}>
+                        キャンセル
+                    </button>
                 </div>
             </div>
         </div>

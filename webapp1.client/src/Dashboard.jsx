@@ -4,6 +4,7 @@ import "./StatusView.css";
 
 import RentalsList from "./RentalsList.jsx";
 import DeviceList from "./DeviceList.jsx";
+import UsersList from "./UsersList.jsx";
 
 export default function Dashboard({ onLogout }) {
     // ログイン情報
@@ -76,7 +77,7 @@ export default function Dashboard({ onLogout }) {
                     <button className={`menu-btn ${view === "devices" ? "active" : ""}`} onClick={() => setView("devices")}>
                         機器一覧
                     </button>
-                    <button className={`menu-btn ${view === "users" ? "active" : ""}`} onClick={() => setView("users")} disabled>
+                    <button className={`menu-btn ${view === "users" ? "active" : ""}`} onClick={() => setView("users")}>
                         ユーザー一覧
                     </button>
                 </nav>
@@ -140,7 +141,7 @@ export default function Dashboard({ onLogout }) {
             {/* 右側：ユーザー一覧（未実装プレースホルダ） */}
             {view === "users" && (
                 <main className="panel flat">
-                    <div className="status-card">ユーザー一覧は未実装です</div>
+                    <UsersList />
                 </main>
             )}
         </div>

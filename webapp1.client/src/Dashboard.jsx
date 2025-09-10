@@ -100,7 +100,6 @@ export default function Dashboard({ onLogout }) {
                                     <span className="status-label">貸出状態：</span>
                                     {me?.rental ? (
                                         <>
-                                            <img src="/icons/renting.png" alt="貸出中" className="renting-icon" />
                                             <span className="status-badge bad">貸出中</span>
                                         </>
                                     ) : (

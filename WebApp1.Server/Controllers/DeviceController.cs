@@ -170,6 +170,46 @@ WHERE asset_no=@asset_no AND delete_flag=FALSE";
             return Ok(new { message = "削除しました" });
         }
 
+        // ---------- 詳細取得（資産番号） ----------
+        [HttpGet("{assetNo}")]
+        public async Task<IActionResult> GetByAsset(string assetNo)
+        {
+            if (string.IsNullOrWhiteSpace(assetNo))
+                return BadRequest(new { message = "assetNo is required" });
+
+            const string sql = @"
+SELECT asset_no, maker, os, memory_gb, storage_gb, gpu, location,
+       broken_flag, register_date, COALESCE(remarks,'')
+  FROM mst_device
+ WHERE TRIM(asset_no) = TRIM(@asset)   -- 前後（全角/半角）スペース対策
+   AND delete_flag = FALSE
+ LIMIT 1;";
+
+            if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
+            using var cmd = new NpgsqlCommand(sql, _conn);
+            cmd.Parameters.AddWithValue("asset", assetNo);
+
+            using var r = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow);
+            if (!await r.ReadAsync())
+                return NotFound(new { message = $"機器が見つかりません（asset_no='{assetNo}'）" });
+
+            // フロント（RentalsList.jsx）が参照するプロパティ名に合わせて返す
+            return Ok(new
+            {
+                assetNo = r.GetString(0),
+                maker = r.IsDBNull(1) ? "" : r.GetString(1),
+                os = r.IsDBNull(2) ? "" : r.GetString(2),
+                memoryGb = r.IsDBNull(3) ? (int?)null : r.GetInt32(3),
+                storageGb = r.IsDBNull(4) ? (int?)null : r.GetInt32(4),
+                gpu = r.IsDBNull(5) ? "" : r.GetString(5),
+                location = r.IsDBNull(6) ? "" : r.GetString(6),
+                brokenFlag = r.GetBoolean(7),
+                registerDate = r.IsDBNull(8) ? (DateTime?)null : r.GetDateTime(8),
+                remarks = r.IsDBNull(9) ? "" : r.GetString(9),
+            });
+        }
+
+
         // ---------- Helper ----------
         private static void Add(NpgsqlCommand cmd, string name, object? value)
             => cmd.Parameters.AddWithValue(name, value ?? DBNull.Value);

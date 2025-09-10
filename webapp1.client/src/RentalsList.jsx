@@ -280,8 +280,6 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
                                         {busy ? "貸出中" : "空き"}
                                     </span>
                                 </div>
-                                <div className="k">使用者</div>
-                                <div className="v">{latestRow?.employeeName || ""}</div>
                                 <div className="k">貸出日</div>
                                 <div className="v">{fmt(latestRow?.rentalDate)}</div>
                                 <div className="k">返却締切日</div>

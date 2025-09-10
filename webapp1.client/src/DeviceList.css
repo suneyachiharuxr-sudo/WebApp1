@@ -1,6 +1,6 @@
 ﻿/* 機器一覧用の“丸背景”カード（貸出状況より少し広め） */
 .devices-card {
-    width: min(1000px, calc(100vw - var(--sidebar-w) - 24px));
+    width: min(1200px, calc(100vw - var(--sidebar-w) - 24px));
     margin-left: 16px 8px 24px 8px;
     padding: var(--panel-pad);
     background: #ececec;
@@ -123,7 +123,7 @@
 
 /* ====== テーブルの見た目と列幅 ====== */
 .device-table {
-    width: 900px; /* 8 列が見切れない幅。必要なら 1180〜1320 の範囲で微調整 */
+    width: 1090px; /* 8 列が見切れない幅。必要なら 1180〜1320 の範囲で微調整 */
     border-collapse: separate;
     border-spacing: 0;
     background: #fff;

@@ -52,7 +52,7 @@ export default function RentalsList() {
             <div className="rentals-head">
                 <h2 className="rentals-title">貸出状況一覧</h2>
                 <button className="btn ghost" onClick={fetchAll}>
-                    ⟳ 再読込
+                    ⟳
                 </button>
             </div>
 

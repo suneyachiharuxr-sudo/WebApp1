@@ -51,8 +51,14 @@ export default function RentalsList() {
         <section className="rentals-card">
             <div className="rentals-head">
                 <h2 className="rentals-title">貸出状況一覧</h2>
-                <button className="btn ghost" onClick={fetchAll}>
-                    ⟳
+                <button
+                    className="btn ghost icon"
+                    onClick={fetchAll}
+                    aria-label="再読み込み"
+                    title="再読み込み"
+                >
+                    <span className="icon-refresh">⟳</span>
+                    <span className="sr-only">再読み込み</span>
                 </button>
             </div>
 

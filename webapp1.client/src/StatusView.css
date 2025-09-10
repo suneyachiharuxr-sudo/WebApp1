@@ -1,27 +1,32 @@
-/* このビュー専用の“丸背景”カード。1366x768 でも必ず収まる幅 */
+/* ===== カード本体：レイアウトを安定させる ===== */
 .status-card {
-    width: min(900px, calc(100vw - var(--sidebar-w) - 40px));
+    width: min(1000px, calc(100vw - var(--sidebar-w) - 40px));
     margin: 20px auto;
     padding: var(--panel-pad);
-    background: #ececec;
     background: linear-gradient(180deg,#f6f6f6 0%,#e9e9e9 100%);
     border-radius: 32px;
     box-shadow: 0 12px 30px rgba(0,0,0,.06) inset, 0 8px 24px rgba(0,0,0,.06);
-    min-height: calc(100vh - 130px); /* 余白分だけ引いて全高に近づける。数値は好みで */
+    min-height: calc(100vh - 130px);
+    position: relative; /* ← 右下の返却ボタンを固定するため */
 }
 
+/* ===== 見出し ===== */
 .status-title {
-    font-size: 56px;
+    font-size: clamp(36px, 5vw, 56px);
     font-weight: 800;
-    margin: 10px 0 24px;
+    margin: 6px 0 28px;
     color: #1d2b3a;
+    text-align: center; /* ← 中央寄せ */
+    letter-spacing: .02em;
 }
 
+/* ===== 「貸出状態：◯◯」行 ===== */
 .status-row {
     display: flex;
     align-items: center;
-    gap: 18px;
-    margin: 18px 0 26px;
+    justify-content: center; /* ← 中央に寄せる */
+    gap: 16px;
+    margin: 12px 0 26px;
 }
 
 .status-label {
@@ -29,13 +34,18 @@
     color: #333;
 }
 
+/* バッジ（貸出中／なし） */
 .status-badge {
-    display: inline-block;
-    padding: 10px 16px;
-    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 18px;
+    min-width: 180px;
+    border-radius: 14px;
     font-weight: 800;
     color: #fff;
     font-size: 40px;
+    line-height: 1;
 }
 
     .status-badge.good {
@@ -46,36 +56,45 @@
         background: #e6853a;
     }
 
+/* ===== 明細（貸出機器・貸出日・締切） ===== */
 .status-detail {
-    font-size: 20px;
+    font-size: 30px;
     margin: 10px 0;
+    text-align: center; /* ← 中央寄せ */
+    line-height: 1.9;
 }
 
+    .status-detail.overdue {
+        color: #d40000;
+        font-weight: 800;
+    }
+
+/* ===== 返却ボタン：カード右下に大きめのピル形で固定 ===== */
 .status-return {
-    margin-left: auto;
-    display: block;
-    padding: 14px 26px;
-    border-radius: 16px;
+    position: absolute;
+    right: 48px;
+    bottom: 48px;
+    padding: 18px 34px;
+    border-radius: 24px;
     border: none;
     background: #9bd089;
     color: #fff;
     font-weight: 800;
-    font-size: 20px;
+    font-size: 40px;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
 }
 
+    .status-return:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,0,0,.1);
+    }
+
+/* エラー */
 .status-error {
     color: #c33;
+    background: #fdecea;
+    border: 1px solid #f5c6cb;
+    padding: 10px 12px;
+    border-radius: 8px;
 }
-
-.renting-icon {
-    width: 22px;
-    height: 22px;
-    margin-right: 6px;
-    vertical-align: middle;
-}
-
-.status-detail.overdue {
-    color: #d40000;
-    font-weight: 800;
-}
-

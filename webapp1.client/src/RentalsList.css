@@ -17,6 +17,11 @@
     box-shadow: 0 12px 30px rgba(0,0,0,.06) inset, 0 8px 24px rgba(0,0,0,.06);
 }
 
+.panel.flat {
+    padding-left: 150px; /* ← ここが効く */
+    padding-right: 0; /* 右も要らなければ 0 に */
+}
+
 /* ヘッダ */
 .rentals-head {
     display: flex;

@@ -213,11 +213,6 @@
     min-width: 110px;
 }
 
-.w-del {
-    min-width: 80px;
-    text-align: center;
-}
-
 /* モーダル・確認ダイアログ（DeviceListに合わせ） */
 .modal-backdrop {
     position: fixed;

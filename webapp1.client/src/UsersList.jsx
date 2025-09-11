@@ -301,9 +301,6 @@ function UserModal({ title, initial, onClose, onSubmit }) {
 
                         <label>退職日</label>
                         <input type="date" value={f.retireDate} onChange={e => setF({ ...f, retireDate: e.target.value })} />
-
-                        <label>論理削除</label>
-                        <input type="checkbox" checked={f.deleteFlag} onChange={e => setF({ ...f, deleteFlag: e.target.checked })} />
                     </div>
 
                     <div className="modal-actions">

@@ -78,13 +78,14 @@
 
 /* 表の表示領域 */
 .table-viewport {
-    height: calc(100vh - 260px);
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding-right: 4px;
-    border-radius: 16px;
-    border: 1px solid var(--gray-200);
-    background: #fff;
+     position: relative; /* 念のため */
+     height: calc(100vh - 260px);
+     overflow-y: auto;
+     overflow-x: hidden;
+     padding-right: 4px;
+     border: 1px solid var(--gray-200);
+     border-radius: 12px; /* ここで丸角 */
+     background: #fff;
 }
 
 /* 本体の横スクロール制御 */
@@ -98,14 +99,12 @@
     }
 
 /* ヘッダー固定 */
-.users-table thead th {
+/* sticky ヘッダーは最後に1回だけ、強めに */
+.table-viewport .users-table thead th {
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 10;
     background: #f9fafb;
-    color: #374151;
-    text-align: left;
-    padding: 10px 12px;
     border-bottom: 1px solid var(--gray-200);
     font-weight: 600;
 }
@@ -132,13 +131,12 @@
 
 /* テーブル見た目と列幅 */
 .users-table {
-    width: 1090px;
-    border-collapse: separate;
-    border-spacing: 0;
-    background: #fff;
-    border-radius: 12px;
-    overflow: hidden;
+     width: 1090px;
+     border-collapse: separate;
+     border-spacing: 0;
+     background: #fff;    
 }
+
 
     .users-table th, .users-table td {
         padding: 12px 14px;

@@ -1,6 +1,6 @@
 ﻿import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import "./UsersList.css";
-import Portal from "./Portal"; // モーダルをbody直下に出す
+import Portal from "./Portal";
 
 export default function UsersList() {
     const [rows, setRows] = useState([]);
@@ -9,10 +9,13 @@ export default function UsersList() {
     const [deleteMode, setDeleteMode] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
 
-    // 作成/編集/削除
+    // 新規/編集/削除
     const [showCreate, setShowCreate] = useState(false);
     const [editing, setEditing] = useState(null);
     const [confirmDel, setConfirmDel] = useState(null); // employeeNo
+
+    // パスワード設定モーダル
+    const [pwModal, setPwModal] = useState({ open: false, employeeNo: "", name: "" });
 
     // ===== 上部横スクロールバー =====
     const tableWrapRef = useRef(null);
@@ -46,7 +49,6 @@ export default function UsersList() {
         if (top) top.scrollLeft = e.currentTarget.scrollLeft;
     };
 
-    // ===== API =====
     const fetchAll = async () => {
         setLoading(true);
         setErr("");
@@ -61,10 +63,12 @@ export default function UsersList() {
             setLoading(false);
         }
     };
-    useEffect(() => {
-        fetchAll();
-    }, []);
+    useEffect(() => { fetchAll(); }, []);
 
+    const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "");
+    const sex = (g) => (g === 0 ? "男性" : g === 1 ? "女性" : g === 2 ? "その他" : "");
+
+    // ---- API helpers ----
     const createUser = async (payload) => {
         const res = await fetch("/users/create", {
             method: "POST",
@@ -73,7 +77,9 @@ export default function UsersList() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.message || "登録に失敗しました");
+        return payload.employeeNo;
     };
+
     const updateUser = async (payload) => {
         const res = await fetch("/users/update", {
             method: "PUT",
@@ -83,6 +89,7 @@ export default function UsersList() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.message || "更新に失敗しました");
     };
+
     const deleteUser = async (employeeNo) => {
         const res = await fetch("/users/delete", {
             method: "POST",
@@ -93,12 +100,28 @@ export default function UsersList() {
         if (!res.ok) throw new Error(data?.message || "削除に失敗しました");
     };
 
-    // ===== 表示ユーティリティ =====
-    const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "");
-    const sex = (g) => (g === 0 ? "男性" : g === 1 ? "女性" : g === 2 ? "その他" : "");
+    const checkAuthExists = async (employeeNo) => {
+        const r = await fetch(`/auth/exists?employeeNo=${encodeURIComponent(employeeNo)}`);
+        const j = await r.json().catch(() => ({}));
+        return !!j?.exists;
+    };
 
-    // 空行時の列数（アイコン列 + 削除モード列 + 初期8列 + 詳細5列）
-    const emptyColSpan = 1 + (deleteMode ? 1 : 0) + 8 + (showDetails ? 5 : 0);
+    // 空行時の列数
+    const emptyColSpan = 1 + (deleteMode ? 1 : 0) + 10 + (showDetails ? 6 : 0);
+
+    // 一覧から“パスワード設定”ボタン押下
+    const openPasswordSetup = async (user) => {
+        try {
+            const exists = await checkAuthExists(user.employeeNo);
+            if (exists) {
+                alert("このユーザーは既にパスワード設定済みです。");
+                return;
+            }
+            setPwModal({ open: true, employeeNo: user.employeeNo, name: user.name || user.employeeNo });
+        } catch {
+            alert("確認に失敗しました。ネットワークをご確認ください。");
+        }
+    };
 
     return (
         <section className="users-card">
@@ -107,28 +130,20 @@ export default function UsersList() {
 
                 <div className="toolbar two-sides">
                     <div className="left-group">
-                        <button className="btn" title="新規" onClick={() => setShowCreate(true)}>
-                            ＋
-                        </button>
+                        <button className="btn" title="新規" onClick={() => setShowCreate(true)}>＋</button>
                         <button
                             className={`btn ${deleteMode ? "active" : ""}`}
                             title="削除モード"
-                            onClick={() => setDeleteMode((v) => !v)}
-                        >
-                            －
-                        </button>
+                            onClick={() => setDeleteMode(v => !v)}
+                        >－</button>
                     </div>
                     <div className="right-group">
-                        <button className="btn" title="再読込" onClick={fetchAll}>
-                            ⟳
-                        </button>
+                        <button className="btn" title="再読込" onClick={fetchAll}>⟳</button>
                         <button
                             className={`btn ${showDetails ? "active" : ""}`}
                             title="詳細列の表示/非表示"
-                            onClick={() => setShowDetails((s) => !s)}
-                        >
-                            …
-                        </button>
+                            onClick={() => setShowDetails(s => !s)}
+                        >…</button>
                     </div>
                 </div>
 
@@ -148,7 +163,7 @@ export default function UsersList() {
                             ref={tableWrapRef}
                             onScroll={onBodyScroll}
                         >
-                            <table className="users-table">
+                            <table className={`users-table ${deleteMode ? "has-delete" : ""}`}>
                                 <thead>
                                     <tr>
                                         <th style={{ width: 48 }}></th>
@@ -168,75 +183,49 @@ export default function UsersList() {
                                                 <th className="w-gen">性別</th>
                                                 <th className="w-ret">退職日</th>
                                                 <th className="w-reg">登録日</th>
-                                                {/* ※ 削除フラグの表示列は出さない（要望どおり） */}
                                             </>
                                         )}
+                                        <th className="w-pw">PW</th>
                                     </tr>
                                 </thead>
-
                                 <tbody>
-                                    {rows.map((r) => (
+                                    {rows.map(r => (
                                         <tr key={r.employeeNo}>
                                             <td className="cell-icon">
-                                                <button className="icon edit" title="編集" onClick={() => setEditing(r)}>
-                                                    ✎
-                                                </button>
+                                                <button className="icon edit" title="編集" onClick={() => setEditing(r)}>✎</button>
                                             </td>
                                             {deleteMode && (
                                                 <td className="cell-icon">
-                                                    <button
-                                                        className="icon danger"
-                                                        title="削除"
-                                                        onClick={() => setConfirmDel(r.employeeNo)}
-                                                    >
-                                                        －
-                                                    </button>
+                                                    <button className="icon danger" title="削除" onClick={() => setConfirmDel(r.employeeNo)}>－</button>
                                                 </td>
                                             )}
-
-                                            <td className="w-emp" title={r.employeeNo}>
-                                                {r.employeeNo}
-                                            </td>
-                                            <td className="w-name" title={r.name || ""}>
-                                                {r.name || ""}
-                                            </td>
-                                            <td className="w-kana" title={r.nameKana || ""}>
-                                                {r.nameKana || ""}
-                                            </td>
-                                            <td className="w-tel" title={r.telNo || ""}>
-                                                {r.telNo || ""}
-                                            </td>
-                                            <td className="w-mail" title={r.mailAddress || ""}>
-                                                {r.mailAddress || ""}
-                                            </td>
-                                            <td className="w-pos" title={r.position || ""}>
-                                                {r.position || ""}
-                                            </td>
-                                            <td className="w-auth" title={r.accountLevel || ""}>
-                                                {r.accountLevel || ""}
-                                            </td>
+                                            <td className="w-emp" title={r.employeeNo}>{r.employeeNo}</td>
+                                            <td className="w-name" title={r.name || ""}>{r.name || ""}</td>
+                                            <td className="w-kana" title={r.nameKana || ""}>{r.nameKana || ""}</td>
+                                            <td className="w-tel" title={r.telNo || ""}>{r.telNo || ""}</td>
+                                            <td className="w-mail" title={r.mailAddress || ""}>{r.mailAddress || ""}</td>
+                                            <td className="w-pos" title={r.position || ""}>{r.position || ""}</td>
+                                            <td className="w-auth" title={r.accountLevel || ""}>{r.accountLevel || ""}</td>
                                             <td className="w-udt">{fmtDate(r.updateDate)}</td>
 
                                             {showDetails && (
                                                 <>
-                                                    <td className="w-dept" title={r.department || ""}>
-                                                        {r.department || ""}
-                                                    </td>
+                                                    <td className="w-dept" title={r.department || ""}>{r.department || ""}</td>
                                                     <td className="w-age">{r.age ?? ""}</td>
                                                     <td className="w-gen">{sex(r.gender)}</td>
                                                     <td className="w-ret">{fmtDate(r.retireDate)}</td>
                                                     <td className="w-reg">{fmtDate(r.registerDate)}</td>
                                                 </>
                                             )}
-                                        </tr>
-                                    ))}
 
-                                    {rows.length === 0 && (
-                                        <tr>
-                                            <td colSpan={emptyColSpan} className="empty">
-                                                データがありません
+                                            {/* 一覧からの“パスワード設定” */}
+                                            <td className="w-pw">
+                                                <button className="btn" onClick={() => openPasswordSetup(r)}>パスワード設定</button>
                                             </td>
                                         </tr>
+                                    ))}
+                                    {rows.length === 0 && (
+                                        <tr><td colSpan={emptyColSpan} className="empty">データがありません</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -247,53 +236,87 @@ export default function UsersList() {
 
             {/* ── 新規作成 ── */}
             {showCreate && (
-                <Portal>
-                    <UserModal
-                        title="新規ユーザー登録"
-                        onClose={() => setShowCreate(false)}
-                        onSubmit={async (payload) => {
-                            await createUser(payload);
+                <UserModal
+                    title="新規ユーザー登録"
+                    onClose={() => setShowCreate(false)}
+                    onSubmit={async (payload) => {
+                        try {
+                            const employeeNo = await createUser(payload);
                             setShowCreate(false);
                             await fetchAll();
-                        }}
-                    />
-                </Portal>
+
+                            // ここで存在確認 → 任意モーダル
+                            try {
+                                const exists = await checkAuthExists(employeeNo);
+                                if (!exists) {
+                                    const go = window.confirm("このユーザーはパスワード未設定です。今すぐ設定しますか？");
+                                    if (go) {
+                                        setPwModal({ open: true, employeeNo, name: payload.name || employeeNo });
+                                    }
+                                }
+                            } catch {
+                                // 確認失敗はスルー（後から一覧のボタンで設定可能）
+                            }
+                        } catch (e) {
+                            alert(e.message || "登録に失敗しました");
+                        }
+                    }}
+                />
             )}
 
             {/* ── 編集 ── */}
             {editing && (
-                <Portal>
-                    <UserModal
-                        title="ユーザー情報編集"
-                        initial={editing}
-                        onClose={() => setEditing(null)}
-                        onSubmit={async (payload) => {
+                <UserModal
+                    title="ユーザー情報編集"
+                    initial={editing}
+                    onClose={() => setEditing(null)}
+                    onSubmit={async (payload) => {
+                        try {
                             await updateUser(payload);
                             setEditing(null);
                             await fetchAll();
-                        }}
-                    />
-                </Portal>
+                        } catch (e) {
+                            alert(e.message || "更新に失敗しました");
+                        }
+                    }}
+                />
             )}
 
             {/* ── 削除確認 ── */}
             {confirmDel && (
+                <ConfirmDialog
+                    title="本当に削除しますか？"
+                    okText="はい"
+                    cancelText="いいえ"
+                    onOk={async () => {
+                        try {
+                            await deleteUser(confirmDel);
+                        } catch (e) {
+                            alert(e.message || "削除に失敗しました");
+                        }
+                        setConfirmDel(null);
+                        await fetchAll();
+                    }}
+                    onCancel={() => setConfirmDel(null)}
+                />
+            )}
+
+            {/* ── パスワード設定モーダル ── */}
+            {pwModal.open && (
                 <Portal>
-                    <ConfirmDialog
-                        title="本当に削除しますか？"
-                        okText="はい"
-                        cancelText="いいえ"
-                        onOk={async () => {
-                            try {
-                                await deleteUser(confirmDel);
-                            } catch (e) {
-                                alert(e.message || "削除に失敗しました");
-                            }
-                            setConfirmDel(null);
-                            await fetchAll();
-                        }}
-                        onCancel={() => setConfirmDel(null)}
-                    />
+                    <div className="modal-backdrop">
+                        <div className="modal">
+                            <div className="modal-header">パスワード登録（{pwModal.employeeNo} / {pwModal.name}）</div>
+                            <PasswordSetupInline
+                                employeeNo={pwModal.employeeNo}
+                                onClose={() => setPwModal({ open: false, employeeNo: "", name: "" })}
+                                onDone={() => {
+                                    alert("パスワードを登録しました。");
+                                    setPwModal({ open: false, employeeNo: "", name: "" });
+                                }}
+                            />
+                        </div>
+                    </div>
                 </Portal>
             )}
         </section>
@@ -314,7 +337,6 @@ function UserModal({ title, initial, onClose, onSubmit }) {
         position: initial?.position || "",
         accountLevel: initial?.accountLevel || "",
         retireDate: initial?.retireDate ? String(initial.retireDate).slice(0, 10) : "",
-        deleteFlag: !!initial?.deleteFlag,
     }));
     const isEdit = !!initial;
 
@@ -332,99 +354,150 @@ function UserModal({ title, initial, onClose, onSubmit }) {
             position: f.position.trim() || null,
             accountLevel: f.accountLevel.trim() || null,
             retireDate: f.retireDate || null,
-            deleteFlag: !!f.deleteFlag,
         };
         await onSubmit(payload);
     };
 
     return (
-        <div className="modal-backdrop">
-            <div className="modal" role="dialog" aria-modal="true">
-                <div className="modal-header">{title}</div>
+        <Portal>
+            <div className="modal-backdrop">
+                <div className="modal">
+                    <div className="modal-header">{title}</div>
 
-                <form className="modal-body" onSubmit={submit}>
-                    <div className="grid">
-                        <label>社員番号</label>
-                        <input
-                            value={f.employeeNo}
-                            onChange={(e) => setF({ ...f, employeeNo: e.target.value })}
-                            disabled={isEdit}
-                            required
-                        />
+                    <form className="modal-body" onSubmit={submit}>
+                        <div className="grid">
+                            <label>社員番号</label>
+                            <input value={f.employeeNo} onChange={e => setF({ ...f, employeeNo: e.target.value })} disabled={isEdit} required />
 
-                        <label>氏名</label>
-                        <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required />
+                            <label>氏名</label>
+                            <input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} required />
 
-                        <label>フリガナ</label>
-                        <input value={f.nameKana} onChange={(e) => setF({ ...f, nameKana: e.target.value })} />
+                            <label>フリガナ</label>
+                            <input value={f.nameKana} onChange={e => setF({ ...f, nameKana: e.target.value })} />
 
-                        <label>所属部署</label>
-                        <input value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })} />
+                            <label>所属部署</label>
+                            <input value={f.department} onChange={e => setF({ ...f, department: e.target.value })} />
 
-                        <label>電話番号</label>
-                        <input value={f.telNo} onChange={(e) => setF({ ...f, telNo: e.target.value })} />
+                            <label>電話番号</label>
+                            <input value={f.telNo} onChange={e => setF({ ...f, telNo: e.target.value })} />
 
-                        <label>メール</label>
-                        <input
-                            type="email"
-                            value={f.mailAddress}
-                            onChange={(e) => setF({ ...f, mailAddress: e.target.value })}
-                        />
+                            <label>メール</label>
+                            <input type="email" value={f.mailAddress} onChange={e => setF({ ...f, mailAddress: e.target.value })} />
 
-                        <label>年齢</label>
-                        <input type="number" value={f.age} onChange={(e) => setF({ ...f, age: e.target.value })} />
+                            <label>年齢</label>
+                            <input type="number" value={f.age} onChange={e => setF({ ...f, age: e.target.value })} />
 
-                        <label>性別</label>
-                        <select value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}>
-                            <option value="">（未設定）</option>
-                            <option value="0">男性</option>
-                            <option value="1">女性</option>
-                            <option value="2">その他</option>
-                        </select>
+                            <label>性別</label>
+                            <select value={f.gender} onChange={e => setF({ ...f, gender: e.target.value })}>
+                                <option value="">（未設定）</option>
+                                <option value="0">男性</option>
+                                <option value="1">女性</option>
+                                <option value="2">その他</option>
+                            </select>
 
-                        <label>役職</label>
-                        <input value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} />
+                            <label>役職</label>
+                            <input value={f.position} onChange={e => setF({ ...f, position: e.target.value })} />
 
-                        <label>権限</label>
-                        <input value={f.accountLevel} onChange={(e) => setF({ ...f, accountLevel: e.target.value })} />
+                            <label>権限</label>
+                            <input value={f.accountLevel} onChange={e => setF({ ...f, accountLevel: e.target.value })} />
 
-                        <label>退職日</label>
-                        <input
-                            type="date"
-                            value={f.retireDate}
-                            onChange={(e) => setF({ ...f, retireDate: e.target.value })}
-                        />
-                    </div>
+                            <label>退職日</label>
+                            <input type="date" value={f.retireDate} onChange={e => setF({ ...f, retireDate: e.target.value })} />
+                        </div>
 
-                    <div className="modal-actions">
-                        <button type="submit" className="btn primary">
-                            {isEdit ? "変更" : "登録"}
-                        </button>
-                        <button type="button" className="btn" onClick={onClose}>
-                            キャンセル
-                        </button>
-                    </div>
-                </form>
+                        <div className="modal-actions">
+                            <button type="submit" className="btn primary">{isEdit ? "変更" : "登録"}</button>
+                            <button type="button" className="btn" onClick={onClose}>キャンセル</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
+        </Portal>
+    );
+}
+
+/* ---------- パスワード設定インライン ---------- */
+function PasswordSetupInline({ employeeNo, onClose, onDone }) {
+    const [p1, setP1] = useState("");
+    const [p2, setP2] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState("");
+
+    const validate = () => {
+        if (p1.length < 8) return "8文字以上で入力してください。";
+        if (!/[A-Za-z]/.test(p1) || !/[0-9]/.test(p1)) return "英字と数字を含めてください。";
+        if (p1 !== p2) return "確認用パスワードが一致しません。";
+        return "";
+    };
+
+    const submit = async (e) => {
+        e.preventDefault();
+        const v = validate();
+        if (v) { setError(v); return; }
+        setSubmitting(true);
+        setError("");
+        try {
+            const res = await fetch("/auth/set-password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ employeeNo, password: p1 }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.message || "設定に失敗しました");
+            onDone?.();
+        } catch (e) {
+            setError(e.message || "設定に失敗しました");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <form className="modal-body" onSubmit={submit}>
+            {error && <div className="error" style={{ marginBottom: 12 }}>{error}</div>}
+            <div className="grid">
+                <label>新しいパスワード</label>
+                <input
+                    type="password"
+                    value={p1}
+                    onChange={(e) => setP1(e.target.value)}
+                    placeholder="8文字以上・英字と数字"
+                    autoFocus
+                    required
+                />
+
+                <label>確認</label>
+                <input
+                    type="password"
+                    value={p2}
+                    onChange={(e) => setP2(e.target.value)}
+                    required
+                />
+            </div>
+
+            <div className="modal-actions">
+                <button type="submit" className="btn primary" disabled={submitting}>
+                    {submitting ? "設定中…" : "登録"}
+                </button>
+                <button type="button" className="btn" onClick={onClose} disabled={submitting}>キャンセル</button>
+            </div>
+        </form>
     );
 }
 
 /* ---------- 削除確認 ---------- */
 function ConfirmDialog({ title, okText = "OK", cancelText = "Cancel", onOk, onCancel }) {
     return (
-        <div className="modal-backdrop">
-            <div className="confirm" role="dialog" aria-modal="true">
-                <div className="confirm-title">{title}</div>
-                <div className="confirm-actions">
-                    <button className="btn primary" onClick={onOk}>
-                        {okText}
-                    </button>
-                    <button className="btn" onClick={onCancel}>
-                        {cancelText}
-                    </button>
+        <Portal>
+            <div className="modal-backdrop">
+                <div className="confirm">
+                    <div className="confirm-title">{title}</div>
+                    <div className="confirm-actions">
+                        <button className="btn primary" onClick={onOk}>{okText}</button>
+                        <button className="btn" onClick={onCancel}>{cancelText}</button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </Portal>
     );
 }

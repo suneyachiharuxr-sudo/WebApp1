@@ -1,17 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using System.Data;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace WebApp1.Server.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("auth")] // ← フロントの呼び出しに合わせて固定
     public class AuthController : ControllerBase
     {
-        private readonly NpgsqlConnection _connection;
-        public AuthController(NpgsqlConnection connection) => _connection = connection;
+        private readonly NpgsqlConnection _conn;
+        public AuthController(NpgsqlConnection conn) => _conn = conn;
 
         // ===== DTO =====
         public class LoginRequest
@@ -23,8 +21,79 @@ namespace WebApp1.Server.Controllers
         {
             public string EmployeeNo { get; set; } = string.Empty;
         }
+        public class PwRequest
+        {
+            public string EmployeeNo { get; set; } = string.Empty;
+            public string Password { get; set; } = string.Empty;
+        }
 
-        // ===== /auth/login : 開発用（平文比較） =====
+        // ---------- 追加1: パスワード済みか確認 ----------
+        // GET /auth/exists?employeeNo=A1001
+        [HttpGet("exists")]
+        public async Task<IActionResult> Exists([FromQuery] string employeeNo)
+        {
+            var emp = (employeeNo ?? "").Trim();
+            if (string.IsNullOrEmpty(emp)) return BadRequest(new { message = "employeeNo is required" });
+
+            try
+            {
+                if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
+                using var cmd = new NpgsqlCommand("SELECT 1 FROM auth_user WHERE employee_no=@e LIMIT 1", _conn);
+                cmd.Parameters.AddWithValue("e", emp);
+                var exists = await cmd.ExecuteScalarAsync() != null;
+                return Ok(new { exists });
+            }
+            finally
+            {
+                if (_conn.State == ConnectionState.Open) await _conn.CloseAsync();
+            }
+        }
+
+        // ---------- 追加2: パスワード登録/上書き（平文保存） ----------
+        // POST /auth/set-password  { employeeNo, password }
+        [HttpPost("set-password")]
+        public async Task<IActionResult> SetPassword([FromBody] PwRequest req)
+        {
+            var emp = (req.EmployeeNo ?? "").Trim();
+            var pw = (req.Password ?? "");
+
+            if (string.IsNullOrEmpty(emp)) return BadRequest(new { message = "社員番号が未指定です" });
+            if (string.IsNullOrWhiteSpace(pw)) return BadRequest(new { message = "パスワードを入力してください" });
+            if (pw.Length < 4) return BadRequest(new { message = "4文字以上で入力してください" });
+
+            try
+            {
+                if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
+
+                // MST_USER に存在確認
+                using (var chk = new NpgsqlCommand("SELECT 1 FROM mst_user WHERE employee_no=@e", _conn))
+                {
+                    chk.Parameters.AddWithValue("e", emp);
+                    if (await chk.ExecuteScalarAsync() == null)
+                        return NotFound(new { message = "対象ユーザーが見つかりません" });
+                }
+
+                const string upsert = @"
+INSERT INTO auth_user(employee_no, password_hash)
+VALUES(@e, @p)
+ON CONFLICT (employee_no)
+DO UPDATE SET password_hash = EXCLUDED.password_hash;";
+
+                using var cmd = new NpgsqlCommand(upsert, _conn);
+                cmd.Parameters.AddWithValue("e", emp);
+                cmd.Parameters.AddWithValue("p", pw); // 平文で保存
+                await cmd.ExecuteNonQueryAsync();
+
+                return Ok(new { message = "パスワードを登録しました" });
+            }
+            finally
+            {
+                if (_conn.State == ConnectionState.Open) await _conn.CloseAsync();
+            }
+        }
+
+        // ---------- 既存：平文ログイン（開発用） ----------
+        // POST /auth/login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest login)
         {
@@ -35,18 +104,17 @@ namespace WebApp1.Server.Controllers
 
             try
             {
-                if (_connection.State != ConnectionState.Open)
-                    await _connection.OpenAsync();
+                if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
 
-                const string sql = @"SELECT password_hash FROM auth_user WHERE employee_no = @employee_no";
-                using var cmd = new NpgsqlCommand(sql, _connection);
-                cmd.Parameters.AddWithValue("employee_no", emp);
+                const string sql = @"SELECT password_hash FROM auth_user WHERE employee_no=@e";
+                using var cmd = new NpgsqlCommand(sql, _conn);
+                cmd.Parameters.AddWithValue("e", emp);
 
-                using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow);
-                if (!await reader.ReadAsync())
+                using var rd = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow);
+                if (!await rd.ReadAsync())
                     return Unauthorized(new { message = "IDまたはパスワードが正しくありません" });
 
-                var dbValue = reader.IsDBNull(0) ? null : reader.GetString(0)?.Trim();
+                var dbValue = rd.IsDBNull(0) ? null : rd.GetString(0)?.Trim();
                 if (!string.Equals(dbValue, pass, StringComparison.Ordinal))
                     return Unauthorized(new { message = "IDまたはパスワードが正しくありません" });
 
@@ -54,14 +122,12 @@ namespace WebApp1.Server.Controllers
             }
             finally
             {
-                if (_connection.State == ConnectionState.Open)
-                    await _connection.CloseAsync();
+                if (_conn.State == ConnectionState.Open) await _conn.CloseAsync();
             }
         }
 
-        // ===== /auth/me : 社員氏名＋現在貸出（貸出中のみ） =====
-        // ルール: return_date IS NULL かつ available_flag = FALSE が「貸出中」
-        // available_flag は TRUE=空き / FALSE=貸出中 とする
+        // ---------- 既存：本人情報＋最新の貸出 ----------
+        // GET /auth/me?employeeNo=A1001
         [HttpGet("me")]
         public async Task<IActionResult> Me([FromQuery] string employeeNo)
         {
@@ -72,8 +138,7 @@ namespace WebApp1.Server.Controllers
 
             try
             {
-                if (_connection.State != ConnectionState.Open)
-                    await _connection.OpenAsync();
+                if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
 
                 const string sql = @"
 WITH me AS (
@@ -97,7 +162,7 @@ SELECT m.employee_no, m.name,
 FROM me m
 LEFT JOIN rent r ON TRUE;";
 
-                using var cmd = new NpgsqlCommand(sql, _connection);
+                using var cmd = new NpgsqlCommand(sql, _conn);
                 cmd.Parameters.AddWithValue("emp", emp);
 
                 using var rd = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow);
@@ -124,12 +189,12 @@ LEFT JOIN rent r ON TRUE;";
             }
             finally
             {
-                if (_connection.State == ConnectionState.Open)
-                    await _connection.CloseAsync();
+                if (_conn.State == ConnectionState.Open) await _conn.CloseAsync();
             }
         }
 
-        // ===== /auth/return : 未返却の最新1件を返却に更新 =====
+        // ---------- 既存：返却 ----------
+        // POST /auth/return  { employeeNo }
         [HttpPost("return")]
         public async Task<IActionResult> Return([FromBody] ReturnRequest req)
         {
@@ -139,10 +204,8 @@ LEFT JOIN rent r ON TRUE;";
 
             try
             {
-                if (_connection.State != ConnectionState.Open)
-                    await _connection.OpenAsync();
+                if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
 
-                // 最新の未返却レコード（貸出中）を rental_id で取得
                 const string pickSql = @"
 SELECT rental_id
 FROM trn_rental
@@ -152,7 +215,7 @@ WHERE employee_no = @emp
 ORDER BY rental_date DESC, rental_id DESC
 LIMIT 1;";
                 long? rentalId = null;
-                using (var pick = new NpgsqlCommand(pickSql, _connection))
+                using (var pick = new NpgsqlCommand(pickSql, _conn))
                 {
                     pick.Parameters.AddWithValue("emp", emp);
                     var o = await pick.ExecuteScalarAsync();
@@ -162,13 +225,12 @@ LIMIT 1;";
                 if (rentalId is null)
                     return NotFound(new { message = "返却対象の貸出が見つかりません" });
 
-                // 返却更新：NOW() で日時、available_flag を TRUE（＝空き）へ
                 const string updSql = @"
 UPDATE trn_rental
 SET return_date    = NOW(),
     available_flag = TRUE
 WHERE rental_id    = @rid;";
-                using var upd = new NpgsqlCommand(updSql, _connection);
+                using var upd = new NpgsqlCommand(updSql, _conn);
                 upd.Parameters.AddWithValue("rid", rentalId.Value);
 
                 var affected = await upd.ExecuteNonQueryAsync();
@@ -179,17 +241,8 @@ WHERE rental_id    = @rid;";
             }
             finally
             {
-                if (_connection.State == ConnectionState.Open)
-                    await _connection.CloseAsync();
+                if (_conn.State == ConnectionState.Open) await _conn.CloseAsync();
             }
-        }
-
-        // 参考：将来ハッシュ認証に切替えるとき用
-        private static string ComputeSha256Hash(string rawData)
-        {
-            using var sha256 = SHA256.Create();
-            var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(rawData));
-            return BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
         }
     }
 }

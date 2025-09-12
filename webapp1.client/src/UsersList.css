@@ -78,10 +78,13 @@
 
 /* 表の表示領域 */
 .table-viewport {
-    max-height: 62vh;
+    height: calc(100vh - 260px);
     overflow-y: auto;
     overflow-x: hidden;
     padding-right: 4px;
+    border-radius: 16px;
+    border: 1px solid var(--gray-200);
+    background: #fff;
 }
 
 /* 本体の横スクロール制御 */
@@ -94,21 +97,17 @@
         overflow-x: auto;
     }
 
-/* 縦スクロールの箱（ここがスクロールする） */
-.table-viewport {
-    height: calc(100vh - 260px); /* 好みで */
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding-right: 4px;
-}
-
 /* ヘッダー固定 */
 .users-table thead th {
     position: sticky;
     top: 0;
-    z-index: 3; /* 本文より前面に（固定左列があるなら 4 以上でも） */
-    background: #f9fafb; /* 透け防止の下地 */
-    border-bottom: 1px solid #e5e7eb;
+    z-index: 1;
+    background: #f9fafb;
+    color: #374151;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--gray-200);
+    font-weight: 600;
 }
 
 

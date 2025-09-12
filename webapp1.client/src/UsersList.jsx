@@ -160,7 +160,6 @@ export default function UsersList() {
                                                 <th className="w-gen">性別</th>
                                                 <th className="w-ret">退職日</th>
                                                 <th className="w-reg">登録日</th>
-                                                
                                             </>
                                         )}
                                     </tr>
@@ -198,7 +197,6 @@ export default function UsersList() {
                                                     {/* 退職日 */}
                                                     <td className="w-ret">{fmtDate(r.retireDate)}</td>
                                                     <td className="w-reg">{fmtDate(r.registerDate)}</td>
-                                                    <td className="w-del"></td>
                                                 </>
                                             )}
                                         </tr>
@@ -400,12 +398,6 @@ function UserModal({ title, initial, onClose, onSubmit }) {
                             onChange={(e) => setF({ ...f, retireDate: e.target.value })}
                         />
 
-                        <label>論理削除</label>
-                        <input
-                            type="checkbox"
-                            checked={f.deleteFlag}
-                            onChange={(e) => setF({ ...f, deleteFlag: e.target.checked })}
-                        />
                     </div>
 
                     <div className="modal-actions">

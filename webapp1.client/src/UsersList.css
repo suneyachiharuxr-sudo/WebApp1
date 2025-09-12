@@ -1,16 +1,29 @@
-﻿/* 機器一覧と同じ“丸背景”カードを流用 */
+﻿:root {
+    --sidebar-w: 320px;
+    --panel-gutter: 48px;
+    --panel-max: 1200px;
+    --panel-pad: 16px;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #2563eb;
+    --ok: #16a34a;
+    --danger: #dc2626;
+}
+
+/* カード */
 .users-card {
     width: min(1200px, calc(100vw - var(--sidebar-w) - 24px));
     margin-left: 16px 8px 24px 8px;
     padding: var(--panel-pad);
-    background: linear-gradient(180deg,#f6f6f6 0%,#e9e9e9 100%);
+    background: linear-gradient(180deg, #f6f6f6 0%, #e9e9e9 100%);
     border-radius: 32px;
-    box-shadow: 0 12px 30px rgba(0,0,0,.06) inset, 0 8px 24px rgba(0,0,0,.06);
-    overflow: visible; /* 念のため */
-    transform: none; /* 念のため：transform があると fixed が閉じ込められることがある */
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06) inset, 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
-/* 右側の外側カード(.panel.flat)の余白を詰める */
+/* 外側パネルの余白 */
 .panel.flat {
     padding-left: 150px;
     padding-right: 0;
@@ -28,10 +41,10 @@
     text-align: center;
     font-size: 24px;
     font-weight: 700;
-    letter-spacing: .08em;
+    letter-spacing: 0.08em;
 }
 
-/* 左右に分かれるツールバー */
+/* ツールバー */
 .toolbar.two-sides {
     display: flex;
     align-items: center;
@@ -47,6 +60,7 @@
     gap: 10px;
 }
 
+/* ボタン */
 .btn {
     border: 1px solid #cbd5e1;
     background: #fff;
@@ -63,7 +77,7 @@
         background: #111827;
         color: #fff;
         border-color: var(--primary);
-        box-shadow: 0 0 0 2px rgba(59,130,246,.15) inset;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) inset;
     }
 
     .btn.primary {
@@ -73,22 +87,21 @@
     }
 
         .btn.primary:hover {
-            opacity: .9;
+            opacity: 0.9;
         }
 
-/* 表の表示領域 */
+/* 表示領域（縦スクロールの箱） */
 .table-viewport {
-     position: relative; /* 念のため */
-     height: calc(100vh - 260px);
-     overflow-y: auto;
-     overflow-x: hidden;
-     padding-right: 4px;
-     border: 1px solid var(--gray-200);
-     border-radius: 12px; /* ここで丸角 */
-     background: #fff;
+    height: calc(100vh - 260px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    border-radius: 16px;
+    border: 1px solid var(--gray-200);
+    background: #fff;
 }
 
-/* 本体の横スクロール制御 */
+/* テーブルラッパ */
 .table-wrapper {
     width: 100%;
     overflow-x: hidden;
@@ -98,19 +111,7 @@
         overflow-x: auto;
     }
 
-/* ヘッダー固定 */
-/* sticky ヘッダーは最後に1回だけ、強めに */
-.table-viewport .users-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: #f9fafb;
-    border-bottom: 1px solid var(--gray-200);
-    font-weight: 600;
-}
-
-
-/* 上側の薄い横スクロールバー（必要時のみ表示） */
+/* 途中に出す横スクロールバー */
 .hscroll-top {
     height: 14px;
     overflow-x: auto;
@@ -129,28 +130,43 @@
         border-radius: 6px;
     }
 
-/* テーブル見た目と列幅 */
+/* テーブル */
 .users-table {
-     width: 1090px;
-     border-collapse: separate;
-     border-spacing: 0;
-     background: #fff;    
+    width: 1090px;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
 }
 
+    /* 縦スクロール時にヘッダーだけ固定（左固定なし） */
+    .users-table thead th {
+        position: sticky !important;
+        top: 0;
+        z-index: 5;
+        background: #f9fafb;
+        color: #374151;
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--gray-200);
+        font-weight: 600;
+    }
+    /* Safari 保険 */
+    .users-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        background: #f9fafb;
+    }
 
-    .users-table th, .users-table td {
+    /* セル */
+    .users-table th,
+    .users-table td {
         padding: 12px 14px;
         white-space: nowrap;
         border-bottom: 1px solid #e5e7eb;
         font-size: 14.5px;
-    }
-
-    .users-table thead th {
-        position: sticky;
-        top: 0;
-        background: #f9fafb;
-        z-index: 1;
-        border-bottom: 1px solid #e5e7eb;
     }
 
 /* 列幅（初期8列） */
@@ -186,6 +202,29 @@
     min-width: 110px;
 }
 
+/* 詳細列 */
+.w-dept {
+    min-width: 120px;
+}
+
+.w-age {
+    min-width: 60px;
+    text-align: right;
+}
+
+.w-gen {
+    min-width: 80px;
+}
+
+.w-ret {
+    min-width: 110px;
+}
+
+.w-reg {
+    min-width: 110px;
+}
+
+/* 行頭のアイコンセル */
 .cell-icon {
     width: 48px;
     text-align: center;
@@ -208,30 +247,32 @@
         color: var(--danger);
     }
 
-/* 詳細列 */
-.w-dept {
-    min-width: 120px;
+/* メッセージ */
+.msg {
+    color: var(--muted);
+    padding: 10px 0 4px;
+    font-size: 13px;
 }
 
-.w-age {
-    min-width: 60px;
-    text-align: right;
+.error {
+    color: #7f1d1d;
+    background: rgba(220, 38, 38, 0.12);
+    border: 1px solid rgba(220, 38, 38, 0.35);
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+    line-height: 1.5;
 }
 
-.w-gen {
-    min-width: 80px;
+.empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 18px 0;
+    font-style: italic;
 }
 
-.w-ret {
-    min-width: 110px;
-}
-
-/*.w-reg {
-    min-width: 110px;
-}*/
-
-/* モーダル・確認ダイアログ（DeviceListに合わせ） */
-/* 1) バックドロップの重ね順を強める */
+/* モーダル（前面に） */
 .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -239,7 +280,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10000; /* ← 50 → 10000 に引き上げ */
+    z-index: 10000;
 }
 
 .modal {
@@ -312,68 +353,24 @@
     padding: 16px;
 }
 
-/* ===== ユーザー一覧：固定ヘッダー & 左固定列 ===== */
-
-/* テーブルのヘッダーを固定（縦スクロール時） */
-.users-table thead th {
-    position: sticky;
-    top: 0;
-    background: #f9fafb;
-    z-index: 3; /* 左固定セルより高く */
-    border-bottom: 1px solid #e5e7eb;
-}
-
-/* 左固定列のベース（編集ボタン/社員番号/氏名） */
-.sticky-col {
-    position: sticky;
-    background: #fff; /* スクロール時の下地 */
-    z-index: 2; /* ヘッダーより低く、通常セルより高く */
-}
-
-/* 削除モードの有無で先頭オフセットを切替（編集列の左端 = 0） */
-.users-table {
-    --left-edit: 0px;
-    --left-emp: 48px;
-    --left-name: 48px + 140px;
-}
-    /* 削除モードON時（左に削除列 44px が増える）→ 親に .has-delete を付与して上書き */
-    .users-table.has-delete {
-        --left-edit: 0px;
-        --left-emp: 92px;
-        --left-name: 92px + 140px;
+/* レスポンシブ微調整 */
+@media (max-width: 1440px) {
+    .table-viewport {
+        height: calc(100vh - 240px);
     }
 
-/* 列幅（固定列に合わせて明示。あなたの環境に合わせて微調整OK） */
-.w-emp {
-    width: 140px;
-    min-width: 140px;
+    .users-table th, .users-table td {
+        padding: 10px;
+        font-size: 14px;
+    }
 }
 
-.w-name {
-    width: 200px;
-    min-width: 200px;
-}
+@media (max-width: 1366px) {
+    .table-viewport {
+        height: calc(100vh - 220px);
+    }
 
-/* 固定列ごとの left 設定 */
-.col-edit {
-    left: var(--left-edit);
+    .users-table th, .users-table td {
+        font-size: 13.5px;
+    }
 }
-
-.col-emp {
-    left: calc(var(--left-emp));
-}
-
-.col-name {
-    left: calc(var(--left-name));
-}
-
-/* 固定セルの右境界をわずかに強調（任意） */
-.sticky-col {
-    box-shadow: 1px 0 0 #e5e7eb;
-}
-
-/* ヘッダー + 固定の重なり調整（ヘッダーの固定列） */
-thead .sticky-col {
-    z-index: 4; /* 通常ヘッダーよりさらに上 */
-}
-

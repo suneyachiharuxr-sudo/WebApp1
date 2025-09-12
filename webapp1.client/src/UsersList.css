@@ -6,6 +6,8 @@
     background: linear-gradient(180deg,#f6f6f6 0%,#e9e9e9 100%);
     border-radius: 32px;
     box-shadow: 0 12px 30px rgba(0,0,0,.06) inset, 0 8px 24px rgba(0,0,0,.06);
+    overflow: visible; /* 念のため */
+    transform: none; /* 念のため：transform があると fixed が閉じ込められることがある */
 }
 
 /* 右側の外側カード(.panel.flat)の余白を詰める */
@@ -91,6 +93,24 @@
     .table-wrapper.with-x-scroll {
         overflow-x: auto;
     }
+
+/* 縦スクロールの箱（ここがスクロールする） */
+.table-viewport {
+    height: calc(100vh - 260px); /* 好みで */
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+}
+
+/* ヘッダー固定 */
+.users-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3; /* 本文より前面に（固定左列があるなら 4 以上でも） */
+    background: #f9fafb; /* 透け防止の下地 */
+    border-bottom: 1px solid #e5e7eb;
+}
+
 
 /* 上側の薄い横スクロールバー（必要時のみ表示） */
 .hscroll-top {
@@ -209,11 +229,12 @@
     min-width: 110px;
 }
 
-.w-reg {
+/*.w-reg {
     min-width: 110px;
-}
+}*/
 
 /* モーダル・確認ダイアログ（DeviceListに合わせ） */
+/* 1) バックドロップの重ね順を強める */
 .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -221,7 +242,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 50;
+    z-index: 10000; /* ← 50 → 10000 に引き上げ */
 }
 
 .modal {
@@ -293,3 +314,69 @@
     justify-content: center;
     padding: 16px;
 }
+
+/* ===== ユーザー一覧：固定ヘッダー & 左固定列 ===== */
+
+/* テーブルのヘッダーを固定（縦スクロール時） */
+.users-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f9fafb;
+    z-index: 3; /* 左固定セルより高く */
+    border-bottom: 1px solid #e5e7eb;
+}
+
+/* 左固定列のベース（編集ボタン/社員番号/氏名） */
+.sticky-col {
+    position: sticky;
+    background: #fff; /* スクロール時の下地 */
+    z-index: 2; /* ヘッダーより低く、通常セルより高く */
+}
+
+/* 削除モードの有無で先頭オフセットを切替（編集列の左端 = 0） */
+.users-table {
+    --left-edit: 0px;
+    --left-emp: 48px;
+    --left-name: 48px + 140px;
+}
+    /* 削除モードON時（左に削除列 44px が増える）→ 親に .has-delete を付与して上書き */
+    .users-table.has-delete {
+        --left-edit: 0px;
+        --left-emp: 92px;
+        --left-name: 92px + 140px;
+    }
+
+/* 列幅（固定列に合わせて明示。あなたの環境に合わせて微調整OK） */
+.w-emp {
+    width: 140px;
+    min-width: 140px;
+}
+
+.w-name {
+    width: 200px;
+    min-width: 200px;
+}
+
+/* 固定列ごとの left 設定 */
+.col-edit {
+    left: var(--left-edit);
+}
+
+.col-emp {
+    left: calc(var(--left-emp));
+}
+
+.col-name {
+    left: calc(var(--left-name));
+}
+
+/* 固定セルの右境界をわずかに強調（任意） */
+.sticky-col {
+    box-shadow: 1px 0 0 #e5e7eb;
+}
+
+/* ヘッダー + 固定の重なり調整（ヘッダーの固定列） */
+thead .sticky-col {
+    z-index: 4; /* 通常ヘッダーよりさらに上 */
+}
+

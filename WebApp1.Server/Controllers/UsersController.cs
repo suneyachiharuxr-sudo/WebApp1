@@ -91,7 +91,7 @@ ORDER BY employee_no;";
                     gender = I(rd, "gender"),
                     retireDate = D(rd, "retire_date"),     // ← 退職日
                     registerDate = D(rd, "register_date"),
-                    deleteFlag = B(rd, "delete_flag"),
+                    //deleteFlag = B(rd, "delete_flag"),
                 });
             }
             return Ok(list);

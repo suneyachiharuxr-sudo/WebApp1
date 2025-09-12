@@ -138,7 +138,7 @@ export default function Dashboard({ onLogout }) {
                 </main>
             )}
 
-            {/* 右側：ユーザー一覧（未実装プレースホルダ） */}
+            {/* 右側：ユーザー一覧 */}
             {view === "users" && (
                 <main className="panel flat">
                     <UsersList />

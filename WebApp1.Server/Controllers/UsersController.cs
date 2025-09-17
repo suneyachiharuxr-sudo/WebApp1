@@ -43,11 +43,10 @@ namespace WebApp1.Server.Controllers
 
         public class DeleteReq { public string EmployeeNo { get; set; } = string.Empty; }
 
-        // ===== 一覧 =====
+        // ===== 一覧（論理削除済みは非表示） =====
         [HttpGet("list")]
         public async Task<IActionResult> List()
         {
-            // 見出し「更新日」は update_date、「退職日」は retire_date を返す
             const string sql = @"
 SELECT
   employee_no,
@@ -66,6 +65,7 @@ SELECT
   register_date,
   delete_flag
 FROM mst_user
+WHERE delete_flag = FALSE           -- ★ 論理削除済みは返さない
 ORDER BY employee_no;";
 
             if (_conn.State != System.Data.ConnectionState.Open) await _conn.OpenAsync();
@@ -84,14 +84,14 @@ ORDER BY employee_no;";
                     mailAddress = S(rd, "mail_address"),
                     position = S(rd, "position"),
                     accountLevel = S(rd, "account_level"),
-                    updateDate = D(rd, "update_date"),     // ← 更新日
+                    updateDate = D(rd, "update_date"),     // 更新日
 
                     department = S(rd, "department"),
                     age = I(rd, "age"),
                     gender = I(rd, "gender"),
-                    retireDate = D(rd, "retire_date"),     // ← 退職日
+                    retireDate = D(rd, "retire_date"),     // 退職日
                     registerDate = D(rd, "register_date"),
-                    //deleteFlag = B(rd, "delete_flag"),
+                    // deleteFlag = B(rd, "delete_flag"),     // 今は一覧に出さないので送らなくてOK
                 });
             }
             return Ok(list);
@@ -185,7 +185,7 @@ WHERE employee_no=@employee_no;";
             return Ok(new { message = "更新しました" });
         }
 
-        // ===== 物理削除 =====
+        // ===== 論理削除（物理削除から変更） =====
         [HttpPost("delete")]
         public async Task<IActionResult> Delete([FromBody] DeleteReq req)
         {
@@ -193,21 +193,43 @@ WHERE employee_no=@employee_no;";
             if (string.IsNullOrEmpty(emp)) return BadRequest(new { message = "employeeNo is required" });
             if (_conn.State != System.Data.ConnectionState.Open) await _conn.OpenAsync();
 
-            const string sql = @"DELETE FROM mst_user WHERE employee_no=@e;";
+            const string sql = @"
+UPDATE mst_user
+   SET delete_flag = TRUE,
+       update_date = CURRENT_DATE
+ WHERE employee_no = @e
+   AND delete_flag = FALSE;";
+
             using var cmd = new NpgsqlCommand(sql, _conn);
             cmd.Parameters.AddWithValue("e", emp);
 
-            try
-            {
-                var n = await cmd.ExecuteNonQueryAsync();
-                if (n == 0) return NotFound(new { message = "対象が見つかりません" });
-            }
-            catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
-            {
-                return Conflict(new { message = "貸出履歴などで参照されているため削除できません（先に返却/整理してください）" });
-            }
+            var n = await cmd.ExecuteNonQueryAsync();
+            if (n == 0) return NotFound(new { message = "対象が見つからないか、既に削除済みです" });
 
-            return Ok(new { message = "削除しました" });
+            return Ok(new { message = "論理削除しました" });
         }
+
+        // （任意）復活API：必要になったら使って
+        // [HttpPost("restore")]
+        // public async Task<IActionResult> Restore([FromBody] DeleteReq req)
+        // {
+        //     var emp = (req.EmployeeNo ?? "").Trim();
+        //     if (string.IsNullOrEmpty(emp)) return BadRequest(new { message = "employeeNo is required" });
+        //     if (_conn.State != System.Data.ConnectionState.Open) await _conn.OpenAsync();
+        //
+        //     const string sql = @"
+        //     UPDATE mst_user
+        //        SET delete_flag = FALSE,
+        //            update_date = CURRENT_DATE
+        //      WHERE employee_no = @e
+        //        AND delete_flag = TRUE;";
+        //
+        //     using var cmd = new NpgsqlCommand(sql, _conn);
+        //     cmd.Parameters.AddWithValue("e", emp);
+        //     var n = await cmd.ExecuteNonQueryAsync();
+        //     if (n == 0) return NotFound(new { message = "対象が見つからないか、削除されていません" });
+        //
+        //     return Ok(new { message = "復活しました" });
+        // }
     }
 }

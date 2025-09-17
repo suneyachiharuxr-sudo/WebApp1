@@ -375,3 +375,11 @@
         font-size: 13.5px;
     }
 }
+
+/* 退職行をグレーアウト */
+.row-retired td {
+    color: #9ca3af;
+    background: #f9fafb;
+}
+
+

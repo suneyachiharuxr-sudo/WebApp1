@@ -11,30 +11,32 @@ namespace WebApp1.Server.Controllers
         private readonly NpgsqlConnection _conn;
         public RentalsController(NpgsqlConnection conn) => _conn = conn;
 
-        // 一覧：資産1行 + TRN_RENTAL(資産1行) を素直に左結合
-        // 「現在貸出中」= return_date IS NULL AND available_flag = FALSE AND employee_no IS NOT NULL
+        // 一覧：各資産の“直近の貸出行”をそのまま表示（返却済でも誰が借りてたか残す）
         [HttpGet("list")]
         public async Task<IActionResult> List()
         {
             const string sql = @"
+WITH latest AS (
+  SELECT DISTINCT ON (asset_no)
+         rental_id, asset_no, employee_no, rental_date, return_date, due_date, available_flag
+  FROM trn_rental
+  ORDER BY asset_no, rental_date DESC, rental_id DESC
+)
 SELECT
   ROW_NUMBER() OVER (ORDER BY d.asset_no) AS no,
   d.asset_no,
   d.maker,
   d.os,
   d.location,
-  CASE WHEN (r.return_date IS NULL AND r.available_flag = FALSE AND r.employee_no IS NOT NULL)
-       THEN r.employee_no END AS employee_no,
-  CASE WHEN (r.return_date IS NULL AND r.available_flag = FALSE AND r.employee_no IS NOT NULL)
-       THEN u.name END        AS employee_name,
-  r.rental_date,
-  r.return_date,
-  r.due_date,
-  -- TRUE=空き / FALSE=貸出中
-  (NOT (r.return_date IS NULL AND r.available_flag = FALSE AND r.employee_no IS NOT NULL)) AS is_free
+  l.employee_no,
+  u.name AS employee_name,
+  l.rental_date,
+  l.return_date,
+  l.due_date,
+  (l.return_date IS NOT NULL OR l.available_flag = TRUE) AS is_free
 FROM mst_device d
-LEFT JOIN trn_rental r ON r.asset_no = d.asset_no
-LEFT JOIN mst_user   u ON u.employee_no = r.employee_no
+LEFT JOIN latest     l ON l.asset_no = d.asset_no
+LEFT JOIN mst_user   u ON u.employee_no = l.employee_no
 WHERE d.delete_flag = FALSE
 ORDER BY d.asset_no;";
 
@@ -57,7 +59,7 @@ ORDER BY d.asset_no;";
                     rentalDate = rd.IsDBNull(rd.GetOrdinal("rental_date")) ? (DateTime?)null : rd.GetDateTime(rd.GetOrdinal("rental_date")),
                     returnDate = rd.IsDBNull(rd.GetOrdinal("return_date")) ? (DateTime?)null : rd.GetDateTime(rd.GetOrdinal("return_date")),
                     dueDate = rd.IsDBNull(rd.GetOrdinal("due_date")) ? (DateTime?)null : rd.GetDateTime(rd.GetOrdinal("due_date")),
-                    isFree = rd.GetBoolean(rd.GetOrdinal("is_free"))
+                    isFree = rd.IsDBNull(rd.GetOrdinal("is_free")) ? true : rd.GetBoolean(rd.GetOrdinal("is_free"))
                 });
             }
             return Ok(list);
@@ -65,7 +67,7 @@ ORDER BY d.asset_no;";
 
         public record RentReq(string AssetNo, string EmployeeNo);
 
-        // 貸出：行をINSERTしない。既存の資産行を「貸出中」にUPDATE
+        // 貸出：既存行を“貸出中”に更新（同一資産の未返却があれば409）
         [HttpPost("rent")]
         public async Task<IActionResult> Rent([FromBody] RentReq req)
         {
@@ -74,7 +76,7 @@ ORDER BY d.asset_no;";
 
             if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
 
-            // 既に貸出中なら弾く（一覧と同じ定義）
+            // 既に貸出中なら弾く
             const string chk = @"
 SELECT 1
 FROM trn_rental
@@ -90,7 +92,7 @@ LIMIT 1;";
                 if (exists != null) return Conflict(new { message = "この資産は未返却の貸出が存在します" });
             }
 
-            // 貸出に更新（空き状態を前提に上書き）
+            // 貸出に更新
             const string upd = @"
 UPDATE trn_rental
 SET employee_no   = @emp,
@@ -113,14 +115,17 @@ WHERE asset_no = @asset;";
             return Ok(new { message = "貸出しました" });
         }
 
-        public record ReturnReq(string AssetNo);
+        // ★ 変更：本人しか返却できないようにする
+        public record ReturnReq(string AssetNo, string EmployeeNo);
 
-        // 返却：現在貸出中の行を返却に更新
+        // 返却：現在貸出中 かつ 借りている本人に一致する行のみ返却OK
         [HttpPost("return")]
         public async Task<IActionResult> Return([FromBody] ReturnReq req)
         {
             if (string.IsNullOrWhiteSpace(req.AssetNo))
                 return BadRequest(new { message = "assetNo is required" });
+            if (string.IsNullOrWhiteSpace(req.EmployeeNo))
+                return BadRequest(new { message = "employeeNo is required" });
 
             if (_conn.State != ConnectionState.Open) await _conn.OpenAsync();
 
@@ -130,12 +135,18 @@ SET return_date    = NOW(),
     available_flag = TRUE
 WHERE asset_no     = @asset
   AND return_date IS NULL
-  AND available_flag = FALSE;";
+  AND available_flag = FALSE
+  AND employee_no = @emp;";
             using var ucmd = new NpgsqlCommand(upd, _conn);
             ucmd.Parameters.AddWithValue("asset", req.AssetNo.Trim());
+            ucmd.Parameters.AddWithValue("emp", req.EmployeeNo.Trim());
+
             var n = await ucmd.ExecuteNonQueryAsync();
             if (n == 0)
-                return NotFound(new { message = "返却対象がありません（すでに空きor行が未作成）" });
+            {
+                // 借りている本人でない or そもそも貸出中でない
+                return Forbid(); // 403
+            }
 
             return Ok(new { message = "返却しました" });
         }

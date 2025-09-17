@@ -150,7 +150,7 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
             return {};
         }
     }, []);
-    const employeeNo = auth?.employeeNo;
+    const currentEmployeeNo = auth?.employeeNo;
 
     useEffect(() => {
         (async () => {
@@ -185,13 +185,17 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
     const cap = (n) => (n == null ? "" : n >= 1024 ? `${n / 1024}TB` : `${n}GB`);
 
     const busy = !latestRow?.isFree;
+    const borrowerEmpNo = latestRow?.employeeNo || null;
+
+    // ★ 借りている本人だけ返却可
+    const canReturn = busy && borrowerEmpNo && currentEmployeeNo && borrowerEmpNo === currentEmployeeNo;
 
     const checkout = async () => {
         if (busy) {
             alert("この資産は未返却の貸出が存在します");
             return;
         }
-        if (!employeeNo) {
+        if (!currentEmployeeNo) {
             alert("ログイン情報が見つかりません");
             return;
         }
@@ -201,7 +205,7 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
             const res = await fetch("/rentals/rent", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ assetNo: asset, employeeNo }),
+                body: JSON.stringify({ assetNo: asset, employeeNo: currentEmployeeNo }),
             });
             const data = await readJsonSafe(res);
             if (!res.ok)
@@ -214,16 +218,25 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
     };
 
     const doReturn = async () => {
+        if (!canReturn) {
+            alert("返却できるのは借りている本人のみです。");
+            return;
+        }
         if (!window.confirm("返却します。よろしいですか？")) return;
         try {
             const res = await fetch("/rentals/return", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ assetNo: asset }),
+                body: JSON.stringify({ assetNo: asset, employeeNo: currentEmployeeNo }), // ← 追加
             });
             const data = await readJsonSafe(res);
-            if (!res.ok)
+            if (!res.ok) {
+                // サーバー側は本人以外なら 403 を返す実装
+                if (res.status === 403) {
+                    throw new Error("借りている本人のみ返却できます。");
+                }
                 throw new Error(data?.message || `返却に失敗しました (HTTP ${res.status})`);
+            }
             alert("返却しました");
             onChanged?.();
         } catch (e) {
@@ -286,11 +299,21 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
                                         {busy ? "貸出中" : "空き"}
                                     </span>
                                 </div>
+                                <div className="k">現在の借用者</div>
+                                <div className="v">
+                                    {borrowerEmpNo ? `${borrowerEmpNo}${latestRow?.employeeName ? ` / ${latestRow.employeeName}` : ""}` : ""}
+                                </div>
                                 <div className="k">貸出日</div>
                                 <div className="v">{fmt(latestRow?.rentalDate)}</div>
                                 <div className="k">返却締切日</div>
                                 <div className="v">{fmt(latestRow?.dueDate)}</div>
                             </div>
+
+                            {busy && !canReturn && (
+                                <div className="warn" style={{ marginTop: 12 }}>
+                                    他のユーザーが借りています。返却操作は借用者本人のみ可能です。
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
@@ -300,11 +323,11 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
                         <button className="btn primary" onClick={checkout}>
                             貸出
                         </button>
-                    ) : (
+                    ) : canReturn ? (
                         <button className="btn danger" onClick={doReturn}>
                             返却
                         </button>
-                    )}
+                    ) : null /* 借用者以外はボタン非表示（キャンセルだけ） */}
                     <button className="btn" onClick={onClose}>
                         キャンセル
                     </button>

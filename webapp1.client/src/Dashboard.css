@@ -15,7 +15,7 @@ html, body, #root {
 
 body {
     margin: 0;
-    background: #f6f7f8;
+    /*background: #f6f7f8;*/
     font-family: system-ui, sans-serif;
     color: #222;
 }

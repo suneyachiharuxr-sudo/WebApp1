@@ -288,7 +288,7 @@ export default function UsersList() {
             {/* 論理削除 確認 */}
             {confirmDel && (
                 <ConfirmDialog
-                    title="このユーザーを非表示（論理削除）にします。よろしいですか？"
+                    title="このユーザーを削除します。よろしいですか？"
                     okText="はい"
                     cancelText="いいえ"
                     onOk={async () => {

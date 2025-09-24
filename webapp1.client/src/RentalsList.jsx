@@ -299,7 +299,7 @@ function DeviceRentDialog({ row, onClose, onChanged }) {
                                         {busy ? "貸出中" : "空き"}
                                     </span>
                                 </div>
-                                <div className="k">現在の借用者</div>
+                                <div className="k">前回の借用者</div>
                                 <div className="v">
                                     {borrowerEmpNo ? `${borrowerEmpNo}${latestRow?.employeeName ? ` / ${latestRow.employeeName}` : ""}` : ""}
                                 </div>

@@ -21,7 +21,7 @@ body {
 }
 
 .layout {
-    min-height: 100vh;
+    min-height: auto;
     display: block; /* サイドバーは fixed にするため block でOK */
 }
 

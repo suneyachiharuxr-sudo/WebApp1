@@ -71,7 +71,7 @@ export default function DeviceList() {
         if (v == null || v === "") return "";
         const n = Number(v);
         if (Number.isNaN(n)) return String(v);
-        return n >= 1024 ? `${(n / 1024)}TB` : `${n}GB`;
+        return n >= 1000 ? `${(n / 1000)}TB` : `${n}GB`;
     };
 
     // --- CRUD ---

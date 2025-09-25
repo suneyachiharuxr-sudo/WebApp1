@@ -6,28 +6,24 @@ export default function DeviceList() {
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
     const [deleteMode, setDeleteMode] = useState(false);
-    const [showDetails, setShowDetails] = useState(false); // 追加列の表示/非表示
+    const [showDetails, setShowDetails] = useState(false);
 
-    // モーダル制御
     const [showCreate, setShowCreate] = useState(false);
-    const [editing, setEditing] = useState(null);        // { ...row }
-    const [confirmDel, setConfirmDel] = useState(null);  // assetNo
+    const [editing, setEditing] = useState(null);
+    const [confirmDel, setConfirmDel] = useState(null);
 
-    // ===== 上部横スクロールバー用 =====
-    const tableWrapRef = useRef(null);   // 下の本体（.table-wrapper）
-    const topScrollRef = useRef(null);   // 上の薄いバー
+    const tableWrapRef = useRef(null);
+    const topScrollRef = useRef(null);
     const [hWidth, setHWidth] = useState(0);
     const [needX, setNeedX] = useState(false);
 
     useLayoutEffect(() => {
         const el = tableWrapRef.current;
         if (!el) return;
-
         const update = () => {
             setHWidth(el.scrollWidth);
-            setNeedX(el.scrollWidth > el.clientWidth); // はみ出す時だけ上バーを表示
+            setNeedX(el.scrollWidth > el.clientWidth);
         };
-
         update();
         const ro = new ResizeObserver(update);
         ro.observe(el);
@@ -39,16 +35,15 @@ export default function DeviceList() {
     }, [rows, showDetails]);
 
     const onTopScroll = (e) => {
-        const body = tableWrapRef.current;
-        if (!body) return;
-        body.scrollLeft = e.currentTarget.scrollLeft;
+        if (tableWrapRef.current) {
+            tableWrapRef.current.scrollLeft = e.currentTarget.scrollLeft;
+        }
     };
     const onBodyScroll = (e) => {
-        const top = topScrollRef.current;
-        if (!top) return;
-        top.scrollLeft = e.currentTarget.scrollLeft;
+        if (topScrollRef.current) {
+            topScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+        }
     };
-    // ================================
 
     const fetchAll = async () => {
         setLoading(true);
@@ -74,7 +69,6 @@ export default function DeviceList() {
         return n >= 1000 ? `${(n / 1000)}TB` : `${n}GB`;
     };
 
-    // --- CRUD ---
     const createDevice = async (payload) => {
         const res = await fetch("/device/create", {
             method: "POST",
@@ -105,14 +99,12 @@ export default function DeviceList() {
         if (!res.ok) throw new Error(data.message || "削除に失敗しました");
     };
 
-    // --- UI ---
     return (
-        <section className="devices-card">{/* 丸背景カードの幅コントロール */}
+        <section className="devices-card">
             <div className="device-page">
                 <div className="page-title">機器一覧</div>
 
                 <div className="toolbar two-sides">
-                    {/* 左：＋／－ */}
                     <div className="left-group">
                         <button className="btn" title="新規" onClick={() => setShowCreate(true)}>＋</button>
                         <button
@@ -121,104 +113,101 @@ export default function DeviceList() {
                             onClick={() => setDeleteMode(v => !v)}
                         >－</button>
                     </div>
-
-                    {/* 右：⟳／… */}
                     <div className="right-group">
                         <button className="btn" title="再読込" onClick={fetchAll}>⟳</button>
+                    </div>
+                </div>
+
+                {/* ▼ テーブル全体ラッパー */}
+                <div className="table-area">
+                    {/* ▼ 詳細ボタンをテーブルの上ではなく下に配置 */}
+                    <div className="details-toggle">
                         <button
                             className={`btn ${showDetails ? "active" : ""}`}
                             title="詳細列の表示/非表示"
                             onClick={() => setShowDetails(s => !s)}
                         >…</button>
                     </div>
-                </div>
 
+                    {needX && (
+                        <div className="hscroll-top" ref={topScrollRef} onScroll={onTopScroll}>
+                            <div style={{ width: hWidth, height: 1 }} />
+                        </div>
+                    )}
 
-                {/* ★ 追加：途中に出す横スクロールバー（必要な時だけ表示） */}
-                {needX && (
-                    <div className="hscroll-top" ref={topScrollRef} onScroll={onTopScroll}>
-                        <div style={{ width: hWidth, height: 1 }} />
-                    </div>
-                )}
+                    {loading && <div className="msg">読み込み中…</div>}
+                    {err && <div className="error">{err}</div>}
 
-                {loading && <div className="msg">読み込み中…</div>}
-                {err && <div className="error">{err}</div>}
-
-                {!loading && !err && (
-                    <div className="table-viewport">
-                        {/* 詳細ONのときだけ横スクロール許可 */}
-                        <div
-                            className={`table-wrapper ${showDetails ? "with-x-scroll" : ""}`}
-                            ref={tableWrapRef}
-                            onScroll={onBodyScroll}
-                        >
-                            <table className="device-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: 48 }}></th>
-                                        {deleteMode && <th style={{ width: 44 }}></th>}
-                                        {/* 初期の8列 */}
-                                        <th className="w-asset">資産番号</th>
-                                        <th className="w-maker">メーカー</th>
-                                        <th className="w-os">OS</th>
-                                        <th className="w-mem">メモリ</th>
-                                        <th className="w-cap">容量</th>
-                                        <th className="w-gpu">グラフィックボード</th>
-                                        <th className="w-loc">保管場所</th>
-                                        <th className="w-broken">故障</th>
-                                        {/* 詳細（ON時のみ） */}
-                                        {showDetails && (
-                                            <>
-                                                <th>リース開始日</th>
-                                                <th>リース期限</th>
-                                                <th>備考</th>
-                                                <th>登録日</th>
-                                                <th>更新日</th>
-                                            </>
-                                        )}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {rows.map(r => (
-                                        <tr key={r.assetNo}>
-                                            <td className="cell-icon">
-                                                <button className="icon edit" title="編集" onClick={() => setEditing(r)}>✎</button>
-                                            </td>
-                                            {deleteMode && (
-                                                <td className="cell-icon">
-                                                    <button className="icon danger" title="削除" onClick={() => setConfirmDel(r.assetNo)}>－</button>
-                                                </td>
-                                            )}
-                                            <td className="w-asset" title={r.assetNo}>{r.assetNo}</td>
-                                            <td className="w-maker" title={r.maker}>{r.maker}</td>
-                                            <td className="w-os" title={r.os || ""}>{r.os || ""}</td>
-                                            <td className="w-mem" title={r.memoryGb != null ? r.memoryGb + "GB" : ""}>
-                                                {r.memoryGb != null ? r.memoryGb + "GB" : ""}
-                                            </td>
-                                            <td className="w-cap" title={formatCap(r.storageGb)}>{formatCap(r.storageGb)}</td>
-                                            <td className="w-gpu" title={r.gpu || ""}>{r.gpu || ""}</td>
-                                            <td className="w-loc" title={r.location || ""}>{r.location || ""}</td>
-                                            <td className="w-broken">{r.brokenFlag ? "〇" : ""}</td>
-
+                    {!loading && !err && (
+                        <div className="table-viewport">
+                            <div
+                                className={`table-wrapper ${showDetails ? "with-x-scroll" : ""}`}
+                                ref={tableWrapRef}
+                                onScroll={onBodyScroll}
+                            >
+                                <table className="device-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: 48 }}></th>
+                                            {deleteMode && <th style={{ width: 44 }}></th>}
+                                            <th className="w-asset">資産番号</th>
+                                            <th className="w-maker">メーカー</th>
+                                            <th className="w-os">OS</th>
+                                            <th className="w-mem">メモリ</th>
+                                            <th className="w-cap">容量</th>
+                                            <th className="w-gpu">グラフィックボード</th>
+                                            <th className="w-loc">保管場所</th>
+                                            <th className="w-broken">故障</th>
                                             {showDetails && (
                                                 <>
-                                                    <td>{r.leaseStart ? r.leaseStart.slice(0, 10) : ""}</td>
-                                                    <td>{r.leaseEnd ? r.leaseEnd.slice(0, 10) : ""}</td>
-                                                    <td className="remarks" title={r.remarks || ""}>{r.remarks || ""}</td>
-                                                    <td>{r.registerDate ? r.registerDate.slice(0, 10) : ""}</td>
-                                                    <td>{r.updateDate ? r.updateDate.slice(0, 10) : ""}</td>
+                                                    <th>リース開始日</th>
+                                                    <th>リース期限</th>
+                                                    <th>備考</th>
+                                                    <th>登録日</th>
+                                                    <th>更新日</th>
                                                 </>
                                             )}
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {rows.map(r => (
+                                            <tr key={r.assetNo}>
+                                                <td className="cell-icon">
+                                                    <button className="icon edit" title="編集" onClick={() => setEditing(r)}>✎</button>
+                                                </td>
+                                                {deleteMode && (
+                                                    <td className="cell-icon">
+                                                        <button className="icon danger" title="削除" onClick={() => setConfirmDel(r.assetNo)}>－</button>
+                                                    </td>
+                                                )}
+                                                <td className="w-asset">{r.assetNo}</td>
+                                                <td className="w-maker">{r.maker}</td>
+                                                <td className="w-os">{r.os || ""}</td>
+                                                <td className="w-mem">{r.memoryGb != null ? r.memoryGb + "GB" : ""}</td>
+                                                <td className="w-cap">{formatCap(r.storageGb)}</td>
+                                                <td className="w-gpu">{r.gpu || ""}</td>
+                                                <td className="w-loc">{r.location || ""}</td>
+                                                <td className="w-broken">{r.brokenFlag ? "〇" : ""}</td>
+                                                {showDetails && (
+                                                    <>
+                                                        <td>{r.leaseStart?.slice(0, 10) || ""}</td>
+                                                        <td>{r.leaseEnd?.slice(0, 10) || ""}</td>
+                                                        <td className="remarks">{r.remarks || ""}</td>
+                                                        <td>{r.registerDate?.slice(0, 10) || ""}</td>
+                                                        <td>{r.updateDate?.slice(0, 10) || ""}</td>
+                                                    </>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
-            {/* ── モーダル ── */}
+            {/* モーダル群 */}
             {showCreate && (
                 <DeviceModal
                     title="新規機器登録"
@@ -291,7 +280,7 @@ function DeviceModal({ title, initial, onClose, onSubmit }) {
             brokenFlag: !!f.brokenFlag,
             leaseStart: f.leaseStart || null,
             leaseEnd: f.leaseEnd || null,
-            remarks: f.remarks.trim() || null
+            remarks: f.remarks.trim() || null,
         };
         await onSubmit(payload);
     };
@@ -300,7 +289,6 @@ function DeviceModal({ title, initial, onClose, onSubmit }) {
         <div className="modal-backdrop">
             <div className="modal">
                 <div className="modal-header">{title}</div>
-
                 <form className="modal-body" onSubmit={submit}>
                     <div className="grid">
                         <label>資産番号</label>
@@ -336,7 +324,6 @@ function DeviceModal({ title, initial, onClose, onSubmit }) {
                         <label className="area-label">備考</label>
                         <textarea className="area" value={f.remarks} onChange={e => setF({ ...f, remarks: e.target.value })} />
                     </div>
-
                     <div className="modal-actions">
                         <button type="submit" className="btn primary">{isEdit ? "変更" : "登録"}</button>
                         <button type="button" className="btn" onClick={onClose}>キャンセル</button>

@@ -111,7 +111,7 @@ export default function UsersList() {
     };
 
     // 空行の colspan（編集列 + 削除モード列 + 基本10列 + 詳細5列 + PW列）
-    const emptyColSpan = 1 + (deleteMode ? 1 : 0) + 10 + (showDetails ? 5 : 0) + 1;
+    const emptyColSpan = 1 + 8 + (showDetails ? 5 : 0) + 1;
 
     // 一覧から “パスワード設定”
     const openPasswordSetup = async (user) => {
@@ -140,11 +140,6 @@ export default function UsersList() {
                     </div>
                     <div className="right-group">
                         <button className="btn" title="再読込" onClick={fetchAll}>⟳</button>
-                        <button
-                            className={`btn ${showDetails ? "active" : ""}`}
-                            title="詳細列の表示/非表示"
-                            onClick={() => setShowDetails(s => !s)}
-                        >…</button>
                     </div>
                 </div>
 
@@ -164,11 +159,10 @@ export default function UsersList() {
                             ref={tableWrapRef}
                             onScroll={onBodyScroll}
                         >
-                            <table className={`users-table ${deleteMode ? "has-delete" : ""}`}>
+                            <table className="users-table">
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 48 }}></th>
-                                        {deleteMode && <th style={{ width: 44 }}></th>}
+                                        <th style={{ width: 48 }}></th> {/* アクション列は常に1列 */}
                                         <th className="w-emp">社員番号</th>
                                         <th className="w-name">氏名</th>
                                         <th className="w-kana">フリガナ</th>
@@ -186,7 +180,7 @@ export default function UsersList() {
                                                 <th className="w-reg">登録日</th>
                                             </>
                                         )}
-                                        <th className="w-pw">PW</th>
+                                        <th className="w-pw">パスワード設定</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -195,17 +189,15 @@ export default function UsersList() {
                                         return (
                                             <tr key={r.employeeNo} className={retired ? "row-retired" : ""}>
                                                 <td className="cell-icon">
-                                                    <button className="icon edit" title="編集" onClick={() => setEditing(r)}>✎</button>
-                                                </td>
-                                                {deleteMode && (
-                                                    <td className="cell-icon">
-                                                        <button
-                                                            className="icon danger"
-                                                            title="削除（非表示）"
-                                                            onClick={() => setConfirmDel(r.employeeNo)}
-                                                        >－</button>
-                                                    </td>
-                                                )}
+                                            <button
+                                              className={`icon ${deleteMode ? "danger" : "edit"}`}
+                                              title={deleteMode ? "削除（非表示）" : "編集"}
+                                              onClick={() => deleteMode ? setConfirmDel(r.employeeNo) : setEditing(r)}
+                                              aria-label={deleteMode ? "削除（非表示）" : "編集"}
+                                            >
+                                             {deleteMode ? "－" : "✎"}
+                                            </button>
+                                            </td>
                                                 <td className="w-emp" title={r.employeeNo}>{r.employeeNo}</td>
                                                 <td className="w-name" title={r.name || ""}>{r.name || ""}</td>
                                                 <td className="w-kana" title={r.nameKana || ""}>{r.nameKana || ""}</td>
@@ -225,7 +217,7 @@ export default function UsersList() {
                                                 )}
                                                 <td className="w-pw">
                                                     <button className="btn" onClick={() => openPasswordSetup(r)}>
-                                                        パスワード設定
+                                                        設定
                                                     </button>
                                                 </td>
                                             </tr>
@@ -239,6 +231,16 @@ export default function UsersList() {
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* ▼ 詳細ボタンをテーブルの上ではなく下に配置 */}
+            <div className="fab-bottom-right">
+                <button
+                    className={`btn ${showDetails ? "active" : ""}`}
+                    title="詳細列の表示/非表示"
+                    onClick={() => setShowDetails(s => !s)}
+                    aria-label="詳細列の表示/非表示"
+                >…</button>
             </div>
 
             {/* 新規 */}

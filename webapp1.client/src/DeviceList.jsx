@@ -99,6 +99,10 @@ export default function DeviceList() {
         if (!res.ok) throw new Error(data.message || "削除に失敗しました");
     };
 
+    // 空行の colspan（編集列 + 削除モード列 + 基本10列 + 詳細5列 + PW列）
+    const emptyColSpan = 1 + 8 + (showDetails ? 5 : 0) + 1;
+
+
     return (
         <section className="devices-card">
             <div className="device-page">
@@ -120,15 +124,6 @@ export default function DeviceList() {
 
                 {/* ▼ テーブル全体ラッパー */}
                 <div className="table-area">
-                    {/* ▼ 詳細ボタンをテーブルの上ではなく下に配置 */}
-                    <div className="details-toggle">
-                        <button
-                            className={`btn ${showDetails ? "active" : ""}`}
-                            title="詳細列の表示/非表示"
-                            onClick={() => setShowDetails(s => !s)}
-                        >…</button>
-                    </div>
-
                     {needX && (
                         <div className="hscroll-top" ref={topScrollRef} onScroll={onTopScroll}>
                             <div style={{ width: hWidth, height: 1 }} />
@@ -149,7 +144,6 @@ export default function DeviceList() {
                                     <thead>
                                         <tr>
                                             <th style={{ width: 48 }}></th>
-                                            {deleteMode && <th style={{ width: 44 }}></th>}
                                             <th className="w-asset">資産番号</th>
                                             <th className="w-maker">メーカー</th>
                                             <th className="w-os">OS</th>
@@ -173,13 +167,15 @@ export default function DeviceList() {
                                         {rows.map(r => (
                                             <tr key={r.assetNo}>
                                                 <td className="cell-icon">
-                                                    <button className="icon edit" title="編集" onClick={() => setEditing(r)}>✎</button>
+                                                    <button
+                                                        className={`icon ${deleteMode ? "danger" : "edit"}`}
+                                                        title={deleteMode ? "削除（非表示）" : "編集"}
+                                                        onClick={() => deleteMode ? setConfirmDel(r.assetNo) : setEditing(r)}
+                                                        aria-label={deleteMode ? "削除（非表示）" : "編集"}
+                                                    >
+                                                        {deleteMode ? "－" : "✎"}
+                                                    </button>
                                                 </td>
-                                                {deleteMode && (
-                                                    <td className="cell-icon">
-                                                        <button className="icon danger" title="削除" onClick={() => setConfirmDel(r.assetNo)}>－</button>
-                                                    </td>
-                                                )}
                                                 <td className="w-asset">{r.assetNo}</td>
                                                 <td className="w-maker">{r.maker}</td>
                                                 <td className="w-os">{r.os || ""}</td>
@@ -200,11 +196,23 @@ export default function DeviceList() {
                                             </tr>
                                         ))}
                                     </tbody>
+                                    {rows.length === 0 && (
+                                        <tr><td colSpan={emptyColSpan} className="empty">データがありません</td></tr>
+                                    )}
                                 </table>
                             </div>
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* ▼ テーブル外・右下に常に出す詳細ボタン */}
+            <div className="fab-bottom-right">
+                <button
+                    className={`btn ${showDetails ? "active" : ""}`}
+                    title="詳細列の表示/非表示"
+                    onClick={() => setShowDetails(s => !s)}
+                >…</button>
             </div>
 
             {/* モーダル群 */}

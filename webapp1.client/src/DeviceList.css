@@ -1,28 +1,28 @@
 ﻿/* 機器一覧用の“丸背景”カード（貸出状況より少し広め） */
 .devices-card {
     width: min(1200px, calc(100vw - var(--sidebar-w) - 24px));
-    margin: 16px 8px 24px 8px;
+    margin-left: 16px 8px 24px 8px;
     padding: var(--panel-pad);
-    background: #ececec;
     background: linear-gradient(180deg,#f6f6f6 0%,#e9e9e9 100%);
     border-radius: 32px;
     box-shadow: 0 12px 30px rgba(0,0,0,.06) inset, 0 8px 24px rgba(0,0,0,.06);
+    position: relative; /* ★ 右下ボタンの基準にする */
 }
 
-/* ① 親の panel.flat の左余白をなくす（デバイス一覧のときだけ） */
-.panel.flat.devices-view {
-    padding-left: 0; /* ← ここが効く */
-    padding-right: 0; /* 右も要らなければ 0 に */
+/* ① 親の panel.flat の左余白（必要なら） */
+.panel.flat {
+    padding-left: 150px;
+    padding-right: 0;
 }
 
 /* ページ骨格 */
 .device-page {
     width: 100%;
     margin: 0 auto;
-    padding: 0 6px 20px; /* ← 左右の余白を少しだけ（寄せたいので小さめ） */
+    padding: 0 6px 20px;
 }
 
-/* タイトルとツールバー（任意） */
+/* タイトルとツールバー */
 .page-title {
     text-align: center;
     font-size: 24px;
@@ -30,13 +30,11 @@
     letter-spacing: .08em;
 }
 
-/* 左右に分けて配置するツールバー */
 .toolbar.two-sides {
     display: flex;
     align-items: center;
-    justify-content: space-between; /* ⟳/… ←→ ＋/－ を左右に分離 */
+    justify-content: space-between;
     gap: 12px;
-    /* 位置の微調整はここで（任意） */
     margin: 8px 6px 12px;
 }
 
@@ -55,16 +53,13 @@
     cursor: pointer;
 }
 
-    .btn.active {
-        background: #111827;
-        color: #fff;
-    }
-
     .btn:hover {
         background: var(--gray-100);
     }
 
     .btn.active {
+        background: #111827;
+        color: #fff;
         border-color: var(--primary);
         box-shadow: 0 0 0 2px rgba(59,130,246,.15) inset;
     }
@@ -80,8 +75,6 @@
         }
 
 /* ====== テーブルエリア ====== */
-
-/* 表示領域：縦スクロール、横は初期は無し */
 .table-viewport {
     max-height: 62vh;
     overflow-y: auto;
@@ -89,24 +82,25 @@
     padding-right: 4px;
 }
 
-/* ====== 表本体の横スクロール制御 ====== */
-/* 初期：詳細OFFは横スクロールを抑止 */
 .table-wrapper {
-    max-width: none;
     width: 100%;
     overflow-x: hidden;
 }
-/* ★ 追加：途中に出す“薄い横スクロールバー” */
+
+    .table-wrapper.with-x-scroll {
+        overflow-x: auto;
+    }
+
+/* 上側の薄い横スクロールバー（必要時のみ表示） */
 .hscroll-top {
-    height: 14px; /* バー自体の高さ（好みで） */
+    height: 14px;
     overflow-x: auto;
     overflow-y: hidden;
-    margin: 6px 6px 10px; /* 上下の余白は好みで調整 */
+    margin: 6px 6px 10px;
     border-radius: 6px;
-    background: #f2f3f5; /* 薄い背景（任意） */
+    background: #f2f3f5;
 }
 
-    /* スクロールバーの見た目（Chrome/Edge系）※任意 */
     .hscroll-top::-webkit-scrollbar {
         height: 12px;
     }
@@ -116,24 +110,19 @@
         border-radius: 6px;
     }
 
-/* 詳細ONのときだけ横スクロールを許可 */
-    .table-wrapper.with-x-scroll {
-        overflow-x: auto;
-    }
-
 /* ====== テーブルの見た目と列幅 ====== */
 .device-table {
-    width: 1090px; /* 8 列が見切れない幅。必要なら 1180〜1320 の範囲で微調整 */
+    width: 1090px; /* 初期8列が収まる幅 */
     border-collapse: separate;
     border-spacing: 0;
     background: #fff;
     border-radius: 12px;
     overflow: hidden;
 }
-    .device-table th,
-    .device-table td {
+
+    .device-table th, .device-table td {
         padding: 12px 14px;
-        white-space: nowrap; /* 折り返さない */
+        white-space: nowrap;
         border-bottom: 1px solid #e5e7eb;
         font-size: 14.5px;
     }
@@ -146,13 +135,6 @@
         border-bottom: 1px solid #e5e7eb;
     }
 
-.device-page, .table-wrapper {
-    max-width: none;
-    width: 100%;
-}
-
-
-/* 編集/削除ボタンのセル */
 /* 操作アイコン列 */
 .cell-icon {
     width: 48px;
@@ -167,16 +149,20 @@
     cursor: pointer;
 }
 
+    .icon:hover {
+        background: #eef1f6;
+    }
+
     .icon.danger {
-        color: #b91c1c;
-        border-color: #fecaca;
+        border-color: var(--danger);
+        color: var(--danger);
     }
 
     .icon.edit {
         color: #111827;
     }
 
-/* —— 初期表示の8列の幅（横スクロールなしで収める） —— */
+/* 列幅（初期8列） */
 .w-asset {
     min-width: 80px;
 }
@@ -212,52 +198,28 @@
     text-align: center;
 }
 
-/* 詳細列 */
+/* 詳細列（ON時に増える） */
 .remarks {
     min-width: 360px;
 }
 
-/* 小さめ画面向けの微調整（任意） */
+/* 画面幅に応じた微調整 */
 @media (max-width: 1440px) {
-    .w-asset {
-        min-width: 160px
+    .table-viewport {
+        max-height: calc(62vh);
     }
 
-    .w-gpu {
-        min-width: 190px
-    }
-
-    .w-loc {
-        min-width: 160px
+    .device-table th, .device-table td {
+        padding: 10px 12px;
+        font-size: 14.5px;
+        white-space: nowrap;
     }
 }
 
-/* 行頭のアイコンセル */
-.cell-icon {
-    text-align: center;
-}
-
-.icon {
-    width: 36px;
-    height: 32px;
-    border-radius: 8px;
-    border: 1px solid var(--gray-300);
-    background: #f7f7fb;
-    cursor: pointer;
-}
-
-    .icon:hover {
-        background: #eef1f6;
+@media (max-width: 1366px) {
+    .device-table th, .device-table td {
+        font-size: 14px;
     }
-
-    .icon.danger {
-        border-color: var(--danger);
-        color: var(--danger);
-    }
-
-.broken.on {
-    color: var(--danger);
-    font-weight: 700;
 }
 
 /* ====== モーダル ====== */
@@ -296,10 +258,9 @@
     flex: 1 1 auto;
 }
 
-/* 2カラムグリッドで見切れないように */
 .grid {
     display: grid;
-    grid-template-columns: 160px 1fr 160px 1fr; /* ラベル/入力 × 2列 */
+    grid-template-columns: 160px 1fr 160px 1fr;
     gap: 12px 16px;
     align-items: center;
 }
@@ -318,7 +279,6 @@
         resize: vertical;
     }
 
-/* フッター（常に見える） */
 .modal-actions {
     display: flex;
     gap: 12px;
@@ -330,7 +290,7 @@
     background: #fff;
 }
 
-/* 削除確認 */
+/* 削除確認モーダル */
 .confirm {
     width: 420px;
     max-width: calc(100vw - 40px);
@@ -354,100 +314,21 @@
     padding: 16px;
 }
 
-:root {
-    --sidebar-width: 320px;
-    --panel-gutter: 48px;
+/* ====== 右下フローティング（詳細トグル） ====== */
+.fab-bottom-right {
+    position: absolute; /* 親 .devices-card を基準 */
+    right: 10px;
+    bottom: 10px;
+    z-index: 20; /* テーブルより前面に */
+    pointer-events: none; /* 下の領域操作を邪魔しない */
 }
 
-/* 機器一覧専用の幅 */
-.panel--wide {
-    max-width: none; /* 上限撤廃（全幅を使う）*/
-    width: calc(100vw - var(--sidebar-width) - var(--panel-gutter));
-}
-
-/* ===== 機器一覧：Vostro向け最適化 ===== */
-
-/* 機器一覧カード自体の横幅（サイドバーに寄せる & 画面にフィット） */
-.device-panel {
-    /* 左マージン＝サイドバー幅＋余白。右側は自動で最大幅フィット */
-    margin-left: calc(var(--sidebar-w) + var(--panel-gutter));
-    max-width: min(var(--panel-max), calc(100vw - var(--sidebar-w) - 2 * var(--panel-gutter)));
-}
-
-/* 表の描画領域の高さ（ヘッダや余白を引いて“ちょうど良い”高さに） */
-.table-viewport {
-    height: calc(100vh - 260px);
-}
-
-/* 中画面（Vostro域）で詰める */
-@media (max-width: 1440px) {
-    .table-viewport {
-        height: calc(100vh - 240px);
-    }
-
-    .device-table th, .device-table td {
-        padding: 10px 12px;
-        font-size: 14.5px;
-        white-space: nowrap;
-    }
-}
-
-/* HDモデルではさらにコンパクトに */
-@media (max-width: 1366px) {
-    .device-panel {
-        max-width: min(980px, calc(100vw - var(--sidebar-w) - 2 * var(--panel-gutter)));
-    }
-
-    .table-viewport {
-        height: calc(100vh - 220px);
-    }
-
-    .device-table th, .device-table td {
-        font-size: 14px;
-    }
-}
-
-/* 機器一覧の <main class="panel flat devices-view"> に効かせる */
-.panel.devices-view { /* ① gap の再定義（面倒な margin-left 上書き不要） */
-    --gap-x: 8px; /* 0 にすればピッタリ寄る。8px は薄い余白 */
-}
-
-.panel.flat.devices-view { /* ② .panel.flat の左 padding を消す */
-    padding-left: 0;
-    padding-right: 0; /* 右も不要なら 0 に */
-}
-
-    /* ③ カード自体が中央寄せにならないように（念のため） */
-    .panel.flat.devices-view > .devices-card {
-        margin-left: 0; /* auto が残ってると中央寄せになる */
-        margin-right: 0;
-    }
-
-/* テーブル塊の左右余白（テーブルの見た目に合わせて調整） */
-.table-area {
-    padding: 0 24px; /* 18〜32pxの範囲で好みでOK */
-}
-
-/* “…” 詳細ボタンをテーブル直上・右端に置く */
-.details-toggle {
-    display: flex;
-    justify-content: flex-end;
-    margin: 6px 0 10px;
-}
-
-    .details-toggle .btn {
-        width: 36px;
-        height: 36px;
-        padding: 0;
+    .fab-bottom-right .btn {
+        pointer-events: auto; /* ボタンはクリック可能 */
+        width: 40px;
+        height: 40px;
         display: grid;
         place-items: center;
         border-radius: 10px;
+        box-shadow: 0 6px 18px rgba(0,0,0,.15);
     }
-
-
-
-
-
-
-
-

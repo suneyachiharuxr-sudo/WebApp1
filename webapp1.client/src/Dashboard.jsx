@@ -21,7 +21,7 @@ export default function Dashboard({ onLogout }) {
     const [err, setErr] = useState("");
 
     const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "-");
-
+    
     // 自分のレンタル状況を取得
     const loadMe = async () => {
         if (!employeeNo) return;

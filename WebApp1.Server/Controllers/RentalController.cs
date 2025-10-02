@@ -93,12 +93,13 @@ LIMIT 1;";
             }
 
             // 貸出に更新
+            //↓後で7に直す
             const string upd = @"
 UPDATE trn_rental
 SET employee_no   = @emp,
     rental_date   = CURRENT_DATE,
     return_date   = NULL,
-    due_date      = CURRENT_DATE + INTERVAL '7 days',
+    due_date      = CURRENT_DATE + INTERVAL '0 days', 
     inventory_date= CURRENT_DATE,
     remarks       = COALESCE(remarks, ''),
     available_flag= FALSE
